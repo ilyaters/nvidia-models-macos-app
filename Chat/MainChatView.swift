@@ -1,0 +1,76 @@
+import SwiftUI
+import SwiftData
+
+/// Main chat window with sidebar + message thread + input.
+struct MainChatView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var viewModel = ChatViewModel()
+
+    var body: some View {
+        NavigationSplitView {
+            ChatSidebar(viewModel: viewModel)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 250)
+        } detail: {
+            VStack(spacing: 0) {
+                if let conversation = viewModel.currentConversation {
+                    // Header
+                    HStack {
+                        Text(conversation.title)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Spacer()
+                        if !conversation.messages.isEmpty {
+                            Button {
+                                Task { await viewModel.regenerateLastMessage(modelContext: modelContext) }
+                            } label: {
+                                Label("Regenerate", systemImage: "arrow.clockwise")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(viewModel.isStreaming)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(.bar)
+
+                    // Message thread (sorted by timestamp for correct order)
+                    MessageThreadView(
+                        messages: conversation.messages.sorted { $0.timestamp < $1.timestamp },
+                        isStreaming: viewModel.isStreaming
+                    )
+
+                    Divider()
+
+                    // Input
+                    ChatInputView(viewModel: viewModel)
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.system(size: 48))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.tertiary)
+                        Text("No conversation selected")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                        Button("New Conversation") {
+                            viewModel.createNewConversation(modelContext: modelContext)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+        }
+        .onAppear {
+            viewModel.configure(modelContext: modelContext)
+            viewModel.temperature = AppSettings.shared.defaultTemperature
+            viewModel.topP = AppSettings.shared.defaultTopP
+            viewModel.maxTokens = AppSettings.shared.defaultMaxTokens
+            viewModel.selectedModelId = AppSettings.shared.defaultModelId
+        }
+        .onChange(of: viewModel.inputText) {
+            viewModel.updateContextEstimation()
+        }
+    }
+}

@@ -1,0 +1,61 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+build/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+*.swp
+*.lock
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+.build/
+
+# CocoaPods (if used)
+Pods/
+
+# Carthage (if used)
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+iOSInjectionProject/
+
+# Obj-C/Swift coverage
+*.gcda
+*.gcno
+
+# Build artifacts
+*.o
+*.a
+*.dylib
+*.framework
+*.app
+*.dSYM
+*.ipa
+
+# Secrets / credentials
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+ExportOptions.plist
+
+# SPM dependencies
+.swiftpm/xcode/package.xcworkspace/
