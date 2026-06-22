@@ -4,147 +4,148 @@
   <img src="Resources/Assets.xcassets/AppIcon.appiconset" width="128" height="128" alt="App Icon" />
 </p>
 
-Нативное macOS-приложение для работы со всеми моделями NVIDIA через API [`integrate.api.nvidia.com/v1/chat/completions`](https://build.nvidia.com). Построено на Swift 6 + SwiftUI + SwiftData с строгим соответствием дизайн-коду **macOS Tahoe / Liquid Glass**.
+A native macOS application for accessing all NVIDIA LLM models via the [`integrate.api.nvidia.com/v1/chat/completions`](https://build.nvidia.com) API. Built with Swift 6 + SwiftUI + SwiftData, strictly following the **macOS Tahoe / Liquid Glass** design code.
 
 ---
 
-## Содержание
+## Table of Contents
 
-- [Возможности](#возможности)
-- [Скриншоты интерфейса](#скриншоты-интерфейса)
-- [Требования](#требования)
-- [Сборка и запуск](#сборка-и-запуск)
-- [Архитектура](#архитектура)
-- [Структура проекта](#структура-проекта)
-- [Дизайн-система](#дизайн-система)
-- [Метрики](#метрики)
-- [Тема оформления](#тема-оформления)
+- [Features](#features)
+- [Interface Overview](#interface-overview)
+- [Requirements](#requirements)
+- [Build & Run](#build--run)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Design System](#design-system)
+- [Metrics](#metrics)
+- [Theme](#theme)
 - [Health Check](#health-check)
-- [Системный промт](#системный-промт)
+- [System Prompt](#system-prompt)
 - [API](#api)
-- [Безопасность](#безопасность)
-- [Тестирование](#тестирование)
-- [Распространение](#распространение)
-- [Зависимости](#зависимости)
+- [Error Handling](#error-handling)
+- [Security](#security)
+- [Testing](#testing)
+- [Distribution](#distribution)
+- [Dependencies](#dependencies)
 - [FAQ](#faq)
 
 ---
 
-## Возможности
+## Features
 
-### Чат
-- **Streaming** — ответы token-by-token через Server-Sent Events (SSE)
-- **Markdown** — рендеринг через MarkdownUI с подсветкой кода
-- **Редактирование** — редактирование и регенерация сообщений
-- **Вложения** — drag & drop изображений, вставка из буфера
-- **Мультимодал** — текст, изображения (URL/base64), видео (URL)
+### Chat
+- **Streaming** — token-by-token responses via Server-Sent Events (SSE)
+- **Markdown** — rendering via MarkdownUI with code highlighting
+- **Editing** — message editing and regeneration
+- **Attachments** — drag & drop images, paste from clipboard
+- **Multimodal** — text, images (URL/base64), video (URL)
 
 ### Menu Bar
-- **Popover** — быстрый доступ через иконку в строке меню
-- **Глобальный хоткей** — `Cmd+Shift+N` для переключения popover
-- **Быстрый переключатель моделей** — прямо в popover
+- **Popover** — quick access via menu bar icon
+- **Global Hotkey** — `Cmd+Shift+N` to toggle popover
+- **Quick Model Switcher** — directly in the popover
 
-### Метрики
-- **Счётчик токенов** — `prompt_tokens`, `completion_tokens`, `total_tokens` из API `usage`
-- **Latency** — Time-to-first-token (TTFT), общее время ответа, tokens/sec
-- **Дашборд** — графики по дням, breakdown по моделям, сводка за период
-- **Бейджи** — компактный индикатор под каждым ответом ассистента
-- **Контекст** — индикатор заполнения контекстного окна с предупреждением
-- **Экспорт** — CSV и JSON
+### Metrics
+- **Token Counter** — `prompt_tokens`, `completion_tokens`, `total_tokens` from API `usage`
+- **Latency** — Time-to-first-token (TTFT), total response time, tokens/sec
+- **Dashboard** — daily charts, per-model breakdown, period summary
+- **Badges** — compact indicator under each assistant response
+- **Context** — context window fill indicator with overflow warning
+- **Export** — CSV and JSON
 
-### Тема оформления
-- **System / Light / Dark** — переключатель с иконками (sun / moon / half-circle)
-- **Авто-следование** — "System" автоматически подстраивается под macOS
-- **Persisted** — настройка сохраняется между запусками
+### Theme
+- **System / Light / Dark** — toggle with icons (sun / moon / half-circle)
+- **Auto-follow** — "System" automatically matches macOS appearance
+- **Persisted** — preference saved between launches
 
 ### Health Check
-- **Индикатор доступности модели** — ✅ available / ❌ unavailable / 🔒 no key / 🔄 checking
-- **Авто-проверка** — при загрузке моделей и сохранении API-ключа
-- **Минимальный запрос** — `max_tokens: 1` для экономии токенов
+- **Model availability indicator** — ✅ available / ❌ unavailable / 🔒 no key / 🔄 checking
+- **Auto-check** — on model load and API key save
+- **Minimal request** — `max_tokens: 1` to conserve tokens
 
-### Системный промт
-- **Global default** — задаётся в Settings, применяется к новым разговорам
-- **Per-conversation override** — редактируется в чате через collapsible-панель
-- **Сохранение** — в SwiftData, поле `systemPrompt` в `Conversation`
+### System Prompt
+- **Global default** — set in Settings, applied to new conversations
+- **Per-conversation override** — editable in chat via collapsible panel
+- **Persisted** — in SwiftData, `systemPrompt` field in `Conversation`
 
-### Прочее
-- **Web Search** — research mode через Google Custom Search API
-- **История** — SwiftData, поиск, экспорт Markdown/JSON/CSV
-- **Безопасность** — API-ключи в macOS Keychain
-- **Все параметры** — temperature, top_p, max_tokens, presence/frequency penalty, stop, seed, thinking_mode
+### Other
+- **Web Search** — research mode via Google Custom Search API
+- **History** — SwiftData, search, export to Markdown/JSON/CSV
+- **Security** — API keys stored in macOS Keychain
+- **All parameters** — temperature, top_p, max_tokens, presence/frequency penalty, stop, seed, thinking_mode
 
 ---
 
-## Скриншоты интерфейса
+## Interface Overview
 
-> Приложение использует Liquid Glass материалы macOS Tahoe: полупрозрачные панели, vibrancy на тексте, hierarchical SF Symbols.
+> The app uses Liquid Glass materials from macOS Tahoe: translucent panels, vibrancy on text, hierarchical SF Symbols.
 
-| Компонент | Описание |
-|-----------|----------|
+| Component | Description |
+|-----------|-------------|
 | Main Window | NavigationSplitView: sidebar + message thread + input |
-| Menu Bar Popover | Компактный чат 360px с последними сообщениями |
-| Settings | 7 вкладок: API, Models, Search, Behavior, History, Metrics, About |
-| Metrics Dashboard | Сводка + графики (Swift Charts) + breakdown |
-| Usage Badge | Glass capsule под ответом: токены, время, tokens/sec |
+| Menu Bar Popover | Compact 360px chat with recent messages |
+| Settings | 7 tabs: API, Models, Search, Behavior, History, Metrics, About |
+| Metrics Dashboard | Summary + charts (Swift Charts) + model breakdown |
+| Usage Badge | Glass capsule under response: tokens, time, tokens/sec |
 | Context Indicator | Glass capsule: estimated tokens / context limit |
-| Model Status | Glass capsule: ✅/❌/🔒/🔄 с цветной иконкой |
-| Theme Toggle | Иконка в toolbar: 🌓/☀️/🌙 |
+| Model Status | Glass capsule: ✅/❌/🔒/🔄 with colored icon |
+| Theme Toggle | Toolbar icon: 🌓/☀️/🌙 |
 
 ---
 
-## Требования
+## Requirements
 
-| Компонент | Версия |
-|-----------|--------|
-| macOS | 15.0+ (Sequoia), рекомендуется 26+ (Tahoe) для Liquid Glass |
+| Component | Version |
+|-----------|---------|
+| macOS | 15.0+ (Sequoia), 26+ (Tahoe) recommended for Liquid Glass |
 | Xcode | 16.0+ |
 | Swift | 6.0+ |
-| Архитектура | Apple Silicon (M1/M2/M3/M4) |
-| NVIDIA API | Ключ с [build.nvidia.com](https://build.nvidia.com) |
+| Architecture | Apple Silicon (M1/M2/M3/M4) |
+| NVIDIA API | Key from [build.nvidia.com](https://build.nvidia.com) |
 
 ---
 
-## Сборка и запуск
+## Build & Run
 
-### Через Xcode
+### Via Xcode
 
 ```bash
-# 1. Открыть проект
+# 1. Open the project
 open NvidiaLLM.xcodeproj
 
-# 2. Сборка (Cmd+B)
-# 3. Запуск (Cmd+R)
-# 4. Тесты (Cmd+U)
+# 2. Build (Cmd+B)
+# 3. Run (Cmd+R)
+# 4. Tests (Cmd+U)
 ```
 
-### Через командную строку
+### Via Command Line
 
 ```bash
-# Debug-сборка
+# Debug build
 xcodebuild -scheme NvidiaLLM -configuration Debug build
 
-# Release-сборка
+# Release build
 xcodebuild -scheme NvidiaLLM -configuration Release build
 
-# Запуск
+# Run
 open build/Debug/NvidiaLLM.app
 
-# Тесты
+# Tests
 xcodebuild -scheme NvidiaLLM test
 ```
 
-### Первый запуск
+### First Launch
 
-1. Приложение запускается в **Menu Bar** (иконка CPU в строке меню)
-2. Открыть **Settings** (`Cmd+,`) → вкладка **API** → ввести NVIDIA API Key
-3. (Опционально) Вкладка **Search** → Google Custom Search API Key + CX
-4. Вкладка **Models** → выбрать модель по умолчанию + системный промт
-5. Нажать на индикатор статуса модели — должен загореться ✅ зелёным
-6. Начать диалог в окне или через popover
+1. The app launches in the **Menu Bar** (CPU icon in the menu bar)
+2. Open **Settings** (`Cmd+,`) → **API** tab → enter NVIDIA API Key
+3. (Optional) **Search** tab → Google Custom Search API Key + CX
+4. **Models** tab → select default model + system prompt
+5. Click the model status indicator — it should turn ✅ green
+6. Start chatting in the window or via the popover
 
 ---
 
-## Архитектура
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -168,16 +169,16 @@ xcodebuild -scheme NvidiaLLM test
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Паттерны
-- **MVVM** — `@Observable` ViewModels для Chat, Popover, Metrics
-- **Service Layer** — отдельные сервисы для API, метрик, keychain
-- **SwiftData** — нативная персистентность, `@Model` классы
-- **AsyncStream** — streaming через `AsyncStream<StreamEvent>`
-- **Dependency Injection** — сервисы передаются через `init`
+### Patterns
+- **MVVM** — `@Observable` ViewModels for Chat, Popover, Metrics
+- **Service Layer** — separate services for API, metrics, keychain
+- **SwiftData** — native persistence, `@Model` classes
+- **AsyncStream** — streaming via `AsyncStream<StreamEvent>`
+- **Dependency Injection** — services passed through `init`
 
 ---
 
-## Структура проекта
+## Project Structure
 
 ```
 NvidiaLLM/
@@ -218,6 +219,7 @@ NvidiaLLM/
 │   ├── UsageBadgeView.swift        # Token/latency badge per message
 │   ├── ContextIndicatorView.swift  # Context window fill indicator
 │   ├── ModelStatusIndicatorView.swift # Health check status badge
+│   ├── ErrorStateView.swift        # Error banner with retry button
 │   └── ChatViewModel.swift         # @Observable VM
 │
 ├── MenuBar/
@@ -230,7 +232,7 @@ NvidiaLLM/
 │   ├── APISettingsView.swift       # API key (Keychain) + endpoint
 │   ├── ModelSettingsView.swift     # Default model + system prompt + params
 │   ├── SearchSettingsView.swift    # Google Custom Search config
-│   ├── BehaviorSettingsView.swift  # Theme + hotkey + launch + popover
+│   ├── BehaviorSettingsView.swift  # Theme + hotkey + launch + network
 │   ├── HistorySettingsView.swift   # Export + retention + clear
 │   ├── MetricsSettingsView.swift   # Retention + export + clear
 │   └── AboutView.swift             # Version + links
@@ -257,7 +259,7 @@ NvidiaLLM/
 │   └── Date+Extensions.swift       # relativeTime, shortFormatted, daysAgo
 │
 ├── Resources/
-│   ├── Assets.xcassets/            # App icon, colors
+│   ├── Assets.xcassets/            # App icon, AccentColor
 │   └── Info.plist                  # Bundle config, ATS, macOS 15+
 │
 ├── Tests/
@@ -273,34 +275,34 @@ NvidiaLLM/
 └── README.md                       # This file
 ```
 
-**Итого: 55 файлов** в 10 модулях.
+**Total: 62 files** across 10 modules.
 
 ---
 
-## Дизайн-система
+## Design System
 
 ### macOS Tahoe / Liquid Glass
 
-Приложение строго следует дизайн-коду macOS Tahoe:
+The app strictly follows the macOS Tahoe design code:
 
-| Принцип | Реализация |
-|---------|------------|
-| **Liquid Glass** | `.glassEffect()` на macOS 26+, fallback `.ultraThinMaterial` |
-| **Vibrancy** | `NSVisualEffectView` с `.hudWindow` material |
-| **SF Symbols** | Все иконки — системные, `.symbolRenderingMode(.hierarchical)` |
-| **Шрифты** | System font (SF Pro), `.design(.monospaced)` для чисел |
-| **Цвета** | Semantic colors (`.primary`, `.secondary`, `.tertiary`), `.accentColor` |
-| **Скругления** | 10–14pt для карточек, 6–8pt для кнопок, capsule для бейджей |
-| **Анимации** | `.spring(duration: 0.2)` для нажатий, `.easeOut` для скролла |
+| Principle | Implementation |
+|-----------|----------------|
+| **Liquid Glass** | `.glassEffect()` on macOS 26+, fallback `.ultraThinMaterial` |
+| **Vibrancy** | `NSVisualEffectView` with `.hudWindow` material |
+| **SF Symbols** | All icons are system, `.symbolRenderingMode(.hierarchical)` |
+| **Fonts** | System font (SF Pro), `.design(.monospaced)` for numbers |
+| **Colors** | Semantic colors (`.primary`, `.secondary`, `.tertiary`), `.accentColor` |
+| **Corners** | 10–14pt for cards, 6–8pt for buttons, capsule for badges |
+| **Animations** | `.spring(duration: 0.2)` for presses, `.easeOut` for scroll |
 | **HIG** | System button styles, proper keyboard navigation, accessibility |
 
-### Glass-компоненты
+### Glass Components
 
 ```swift
-// Glass background для панелей
+// Glass background for panels
 .glassBackground(cornerRadius: 14)
 
-// Glass capsule для бейджей
+// Glass capsule for badges
 .glassCapsuleBackground()
 
 // Glass window background
@@ -312,7 +314,7 @@ NvidiaLLM/
 
 ### SF Symbols
 
-Все иконки используют hierarchical rendering mode для глубины:
+All icons use hierarchical rendering mode for depth:
 
 ```swift
 Image(systemName: "cpu")
@@ -322,67 +324,67 @@ Image(systemName: "cpu")
 
 ---
 
-## Метрики
+## Metrics
 
-### Что собирается
+### What is Collected
 
-| Метрика | Источник | Когда |
-|---------|----------|-------|
-| `prompt_tokens` | API `usage` | После каждого запроса |
-| `completion_tokens` | API `usage` | После каждого запроса |
-| `total_tokens` | API `usage` | После каждого запроса |
-| TTFT (ms) | `LatencyTracker` | Время до первого токена |
-| Response time (ms) | `LatencyTracker` | Полное время генерации |
-| Tokens/sec | Расчёт | `completion_tokens / generation_time` |
+| Metric | Source | When |
+|--------|--------|------|
+| `prompt_tokens` | API `usage` | After each request |
+| `completion_tokens` | API `usage` | After each request |
+| `total_tokens` | API `usage` | After each request |
+| TTFT (ms) | `LatencyTracker` | Time to first token |
+| Response time (ms) | `LatencyTracker` | Total generation time |
+| Tokens/sec | Calculated | `completion_tokens / generation_time` |
 
-### Где смотреть
+### Where to View
 
-1. **В чате** — `UsageBadgeView` под каждым ответом ассистента
-   - Компактно: `↑10 ↓20 · 1.2s`
-   - Раскрывается: input/output/total/model
-2. **Дашборд** — вкладка Metrics в главном окне
-   - 6 карточек: Requests, Total Tokens, Prompt, Completion, Avg TTFT, Avg Response
-   - График ежедневного использования (Swift Charts)
-   - Top моделей по токенам
-   - Latency-статистика
-3. **Экспорт** — Settings → Metrics → CSV/JSON
+1. **In chat** — `UsageBadgeView` under each assistant response
+   - Compact: `↑10 ↓20 · 1.2s`
+   - Expanded: input/output/total/model
+2. **Dashboard** — Metrics tab in the main window
+   - 6 cards: Requests, Total Tokens, Prompt, Completion, Avg TTFT, Avg Response
+   - Daily token usage chart (Swift Charts)
+   - Top models by tokens
+   - Latency statistics
+3. **Export** — Settings → Metrics → CSV/JSON
 
-### Контекст
+### Context
 
-`ContextIndicatorView` в панели ввода показывает:
-- Оценку токенов текущего контекста (pre-send)
-- Заполнение контекстного окна модели (`context_length`)
-- Цветной прогресс-бар: 🟢 <60% / 🟡 <80% / 🔴 >80%
-- Предупреждение при приближении к лимиту
+`ContextIndicatorView` in the input panel shows:
+- Estimated tokens for the current context (pre-send)
+- Context window fill (`context_length` from model metadata)
+- Colored progress bar: 🟢 <60% / 🟡 <80% / 🔴 >80%
+- Warning when approaching the limit
 
 ---
 
-## Тема оформления
+## Theme
 
-### Режимы
+### Modes
 
-| Режим | Иконка | Описание |
-|-------|--------|----------|
-| System | `circle.lefthalf.filled` | Следует за macOS |
-| Light | `sun.max.fill` | Светлая |
-| Dark | `moon.stars.fill` | Тёмная |
+| Mode | Icon | Description |
+|------|------|-------------|
+| System | `circle.lefthalf.filled` | Follows macOS |
+| Light | `sun.max.fill` | Light |
+| Dark | `moon.stars.fill` | Dark |
 
-### Управление
+### Controls
 
-- **Toolbar** — кнопка `ThemeToggleView` в правом верхнем углу
-  - Клик циклит: system → light → dark → system
-  - Правый клилк — меню для прямого выбора
+- **Toolbar** — `ThemeToggleView` button in the top-right corner
+  - Click cycles: system → light → dark → system
+  - Right-click opens a menu for direct selection
 - **Settings** → Behavior → Appearance — segmented picker
 
-### Реализация
+### Implementation
 
 ```swift
-// ThemeManager — @Observable, persisted в UserDefaults
+// ThemeManager — @Observable, persisted in UserDefaults
 @Observable final class ThemeManager {
     var appearance: AppearanceMode  // system / light / dark
 }
 
-// Применение в App
+// Applied in App
 .preferredColorScheme(theme.appearance.colorScheme)
 ```
 
@@ -390,9 +392,9 @@ Image(systemName: "cpu")
 
 ## Health Check
 
-### Как работает
+### How it Works
 
-`HealthCheckService` отправляет минимальный запрос к API:
+`HealthCheckService` sends a minimal request to the API:
 
 ```json
 {
@@ -403,36 +405,36 @@ Image(systemName: "cpu")
 }
 ```
 
-### Статусы
+### Statuses
 
-| Статус | Иконка | Цвет | Условие |
-|--------|--------|------|---------|
-| Unknown | `questionmark.circle` | серый | Не проверялась |
-| Checking | `arrow.triangle.2.circlepath` | синий | Идёт проверка (вращается) |
-| Available | `checkmark.circle.fill` | зелёный | HTTP 200 или 429 |
-| Unavailable | `xmark.circle.fill` | красный | 401/403/404/5xx/ network |
-| No API key | `lock.circle` | оранжевый | Ключ не задан |
+| Status | Icon | Color | Condition |
+|--------|------|-------|-----------|
+| Unknown | `questionmark.circle` | gray | Not checked |
+| Checking | `arrow.triangle.2.circlepath` | blue | In progress (rotating) |
+| Available | `checkmark.circle.fill` | green | HTTP 200 or 429 |
+| Unavailable | `xmark.circle.fill` | red | 401/403/404/5xx/network |
+| No API key | `lock.circle` | orange | Key not set |
 
-### Где отображается
+### Where Displayed
 
-`ModelStatusIndicatorView` — glass capsule рядом с переключателем моделей в панели ввода. Клик запускает повторную проверку.
+`ModelStatusIndicatorView` — glass capsule next to the model selector in the input panel. Click triggers a re-check.
 
 ---
 
-## Системный промт
+## System Prompt
 
-### Уровни
+### Levels
 
 1. **Global default** — Settings → Models → Default System Prompt
-   - Применяется ко всем новым разговорам
-   - Сохраняется в `AppSettings.defaultSystemPrompt`
-2. **Per-conversation** — collapsible-панель в панели ввода (иконка `gearshape`)
-   - Переопределяет global default
-   - Сохраняется в `Conversation.systemPrompt`
+   - Applied to all new conversations
+   - Stored in `AppSettings.defaultSystemPrompt`
+2. **Per-conversation** — collapsible panel in the input area (`gearshape` icon)
+   - Overrides the global default
+   - Stored in `Conversation.systemPrompt`
 
-### Отправка
+### Sending
 
-Системный промт отправляется как первое сообщение с `role: "system"`:
+The system prompt is sent as the first message with `role: "system"`:
 
 ```json
 {
@@ -457,7 +459,7 @@ GET  https://integrate.api.nvidia.com/v1/models
 ### Streaming
 
 ```swift
-// Запрос с include_usage для получения токенов в финальном чанке
+// Request with include_usage to get token counts in the final chunk
 {
   "model": "...",
   "messages": [...],
@@ -465,15 +467,15 @@ GET  https://integrate.api.nvidia.com/v1/models
   "stream_options": {"include_usage": true}
 }
 
-// Финальный SSE-чанк содержит usage:
+// The final SSE chunk contains usage:
 data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}
 data: [DONE]
 ```
 
-### Параметры
+### Parameters
 
-| Параметр | Тип | Default |
-|----------|-----|---------|
+| Parameter | Type | Default |
+|-----------|------|---------|
 | `temperature` | Double | 0.7 |
 | `top_p` | Double | 0.95 |
 | `max_tokens` | Int | 1024 |
@@ -485,49 +487,93 @@ data: [DONE]
 
 ---
 
-## Безопасность
+## Error Handling
 
-| Данные | Хранилище |
-|--------|-----------|
-| NVIDIA API Key | macOS Keychain (`SecItem`) |
-| Google Search API Key | macOS Keychain |
-| Google Search CX | macOS Keychain |
-| Conversations | SwiftData (SQLite, локально) |
-| Usage Records | SwiftData (SQLite, локально) |
-| Settings | UserDefaults |
+### Retry with Exponential Backoff
 
-API-ключи **никогда** не сохраняются в UserDefaults или plain text.
+- **3 attempts** max with exponential backoff (1s → 2s → 4s)
+- **Retries for:** 429 (rate limited), 5xx (server errors), timeout, network connection lost, no internet
+- **Respects `Retry-After` header** from the server
+- **Does not retry:** 401/403 (auth), 404 (not found), 400 (bad request), decoding errors
+
+### Configurable Timeouts
+
+Settings → Behavior → Network:
+
+| Parameter | Default | Range | Meaning |
+|-----------|---------|-------|---------|
+| Request timeout | 30s | 10–120s | Time without data before timeout |
+| Resource timeout | 120s | 30–600s | Total time including retries |
+| Max retries | 3 | 0–10 | Retry attempts for transient errors |
+
+### Error State View
+
+`ErrorStateView` — glass background with:
+- Hierarchical SF Symbol `exclamationmark.triangle.fill`
+- **Retry button** — re-sends the last request
+- **Dismiss button** (X) — clears the error
+
+### Error Map
+
+| Error | What happens | Retry? |
+|-------|-------------|--------|
+| No API key | "Set API key in Settings" | ❌ |
+| Invalid URL | "API URL is invalid" | ❌ |
+| 401/403 Auth | "Auth failed" | ❌ |
+| 404 Not found | "Model not found" | ❌ |
+| 429 Rate limited | Waits `Retry-After` or backoff | ✅ 3 times |
+| 5xx Server error | Exponential backoff | ✅ 3 times |
+| Timeout | Exponential backoff | ✅ 3 times |
+| Network lost | Exponential backoff | ✅ 3 times |
+| No internet | Exponential backoff | ✅ 3 times |
+| Decoding error | "Failed to decode" | ❌ |
+| Stream error | "Streaming error: ..." | ❌ |
 
 ---
 
-## Тестирование
+## Security
+
+| Data | Storage |
+|------|---------|
+| NVIDIA API Key | macOS Keychain (`SecItem`) |
+| Google Search API Key | macOS Keychain |
+| Google Search CX | macOS Keychain |
+| Conversations | SwiftData (SQLite, local) |
+| Usage Records | SwiftData (SQLite, local) |
+| Settings | UserDefaults |
+
+API keys are **never** stored in UserDefaults or plain text.
+
+---
+
+## Testing
 
 ```bash
-# Запуск всех тестов
+# Run all tests
 xcodebuild -scheme NvidiaLLM test
 
-# Или через Xcode: Cmd+U
+# Or via Xcode: Cmd+U
 ```
 
-### Покрытие
+### Coverage
 
-| Тест-файл | Тестов | Что покрывает |
-|-----------|--------|---------------|
-| `StreamingParserTests` | 7 | SSE-парсинг: delta, usage, [DONE], ошибки |
-| `TokenEstimatorTests` | 8 | Оценка токенов: EN/Cyrillic, context, limits |
+| Test File | Tests | What it Covers |
+|-----------|-------|----------------|
+| `StreamingParserTests` | 7 | SSE parsing: delta, usage, [DONE], errors |
+| `TokenEstimatorTests` | 8 | Token estimation: EN/Cyrillic, context, limits |
 | `MetricsStoreTests` | 5 | CRUD, aggregation, breakdown, CSV export |
 | `NVIDIAAPIServiceTests` | 3 | Missing key, invalid URL, stream error |
 | `ModelsFetcherTests` | 3 | Fetch, displayName |
 | `ChatViewModelTests` | 5 | CRUD conversations, send without key, context |
 | `HealthCheckServiceTests` | 9 | Health check statuses, theme cycle |
 
-**Итого: 40 тестов.**
+**Total: 40 tests.**
 
 ---
 
-## Распространение
+## Distribution
 
-### Ручная сборка
+### Manual Build
 
 ```bash
 # Archive
@@ -541,7 +587,7 @@ xcodebuild -exportArchive \
   -exportOptionsPlist ExportOptions.plist
 ```
 
-### Подпись и Notarization
+### Code Signing and Notarization
 
 ```bash
 # Codesign
@@ -560,49 +606,49 @@ xcrun notarytool submit build/NvidiaLLM.zip \
 xcrun stapler staple build/NvidiaLLM.app
 ```
 
-### CI/CD (опционально)
+### CI/CD (optional)
 
-- **GitHub Actions** / **Xcode Cloud** — build + test на каждый PR
-- Автоматический archive + notarization для release-тегов
+- **GitHub Actions** / **Xcode Cloud** — build + test on every PR
+- Automatic archive + notarization for release tags
 
 ---
 
-## Зависимости
+## Dependencies
 
-| Пакет | Версия | Назначение |
-|-------|--------|------------|
-| [MarkdownUI](https://github.com/gonzalezreal/swift-markdown-ui) | 2.4+ | Рендеринг Markdown |
-| [HotKey](https://github.com/soffes/HotKey) | 0.2+ | Глобальные горячие клавиши |
+| Package | Version | Purpose |
+|---------|---------|---------|
+| [MarkdownUI](https://github.com/gonzalezreal/swift-markdown-ui) | 2.4+ | Markdown rendering |
+| [HotKey](https://github.com/soffes/HotKey) | 0.2+ | Global keyboard shortcuts |
 
-Минимум внешних зависимостей — всё остальное нативное (SwiftUI, SwiftData, Swift Charts, Security, AppKit).
+Minimal external dependencies — everything else is native (SwiftUI, SwiftData, Swift Charts, Security, AppKit).
 
 ---
 
 ## FAQ
 
-### Где получить NVIDIA API Key?
-На [build.nvidia.com](https://build.nvidia.com) — войти через NVIDIA Developer аккаунт, выбрать модель, нажать "Get API Key".
+### Where do I get an NVIDIA API Key?
+On [build.nvidia.com](https://build.nvidia.com) — log in with an NVIDIA Developer account, select a model, click "Get API Key".
 
-### Почему нет оценки стоимости?
-NVIDIA NIM pricing меняется со временем и не доступен через API. Мы показываем только токены и latency, которые приходят напрямую из ответа API и гарантированно точны.
+### Why is there no cost estimation?
+NVIDIA NIM pricing changes over time and is not exposed via the API. We only show tokens and latency, which come directly from the API response and are guaranteed to be accurate.
 
-### Работает ли на Intel Mac?
-Нет. Приложение targeting Apple Silicon (M1+). Минимум macOS 15.
+### Does it work on Intel Macs?
+No. The app targets Apple Silicon (M1+). Minimum macOS 15.
 
-### Можно ли использовать другой API endpoint?
-Да — Settings → API → Endpoint. Любой OpenAI-compatible endpoint работает.
+### Can I use a different API endpoint?
+Yes — Settings → API → Endpoint. Any OpenAI-compatible endpoint works.
 
-### Где хранятся данные?
-`~/Library/Application Support/com.nvidia-llm.app/` — SwiftData SQLite база.
+### Where is data stored?
+`~/Library/Application Support/com.nvidia-llm.app/` — SwiftData SQLite database.
 
-### Как экспортировать историю?
+### How do I export history?
 Settings → History → Export as Markdown / JSON.
 
-### Как экспортировать метрики?
+### How do I export metrics?
 Settings → Metrics → Export as CSV / JSON.
 
 ---
 
-## Лицензия
+## License
 
 Private project. All rights reserved.
