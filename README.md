@@ -1,9 +1,5 @@
 # NVIDIA LLM Client for macOS
 
-<p align="center">
-  <img src="Resources/Assets.xcassets/AppIcon.appiconset" width="128" height="128" alt="App Icon" />
-</p>
-
 A native macOS application for accessing all NVIDIA LLM models via the [`integrate.api.nvidia.com/v1/chat/completions`](https://build.nvidia.com) API. Built with Swift 6 + SwiftUI + SwiftData, strictly following the **macOS Tahoe / Liquid Glass** design code.
 
 ---
