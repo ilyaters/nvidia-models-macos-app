@@ -5,6 +5,7 @@ import SwiftUI
 ///
 /// Uses `@Observable` with manual UserDefaults backing so it can be
 /// used as a shared singleton outside of SwiftUI View context.
+@MainActor
 @Observable
 final class AppSettings {
     static let shared = AppSettings()

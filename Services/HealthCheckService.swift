@@ -65,7 +65,7 @@ final class HealthCheckService {
 
     /// Performs a health check for the given model.
     func check(model: String, endpoint: String, apiKey: String) async {
-        guard !apiKey.isEmpty {
+        guard !apiKey.isEmpty else {
             statuses[model] = .noApiKey
             return
         }

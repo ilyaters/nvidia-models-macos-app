@@ -8,6 +8,7 @@ import Foundation
 ///
 /// Includes automatic retry with exponential backoff for rate-limited (429)
 /// and transient network errors.
+@MainActor
 final class NVIDIAAPIService {
     private let session: URLSession
     private let encoder = JSONEncoder()
@@ -15,23 +16,23 @@ final class NVIDIAAPIService {
     private let parser = StreamingParser()
 
     /// Maximum number of retry attempts for transient errors.
-    /// Read from AppSettings at init time.
     private let maxRetries: Int
 
     /// Base delay for exponential backoff (seconds).
     private let baseRetryDelay: TimeInterval = 1.0
 
-    /// Settings reference for runtime configuration.
-    private let settings = AppSettings.shared
+    /// Request timeout in seconds.
+    private let requestTimeout: TimeInterval
 
     init(session: URLSession? = nil) {
         self.maxRetries = AppSettings.shared.maxRetries
+        self.requestTimeout = TimeInterval(AppSettings.shared.requestTimeout)
 
         if let session {
             self.session = session
         } else {
             let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = TimeInterval(AppSettings.shared.requestTimeout)
+            config.timeoutIntervalForRequest = TimeInterval(self.requestTimeout)
             config.timeoutIntervalForResource = TimeInterval(AppSettings.shared.resourceTimeout)
             config.waitsForConnectivity = true
             self.session = URLSession(configuration: config)
@@ -59,6 +60,7 @@ final class NVIDIAAPIService {
     ///   - messages: Conversation messages (including system prompt as first element).
     ///   - params: Sampling parameters.
     /// - Returns: An `AsyncStream` of `StreamEvent` values.
+    nonisolated
     func streamChat(
         endpoint: String,
         apiKey: String,
@@ -66,7 +68,7 @@ final class NVIDIAAPIService {
         messages: [APIRequestMessage],
         params: SamplingParams
     ) -> AsyncStream<StreamEvent> {
-        AsyncStream { continuation in
+        AsyncStream { [maxRetries, baseRetryDelay] continuation in
             Task {
                 var attempt = 0
 
@@ -110,7 +112,11 @@ final class NVIDIAAPIService {
                         guard (200...299).contains(httpResponse.statusCode) else {
                             let body: String?
                             do {
-                                body = String(bytes: try await bytes.collect(), encoding: .utf8)
+                                var data = Data()
+                                for try await byte in bytes {
+                                    data.append(byte)
+                                }
+                                body = String(data: data, encoding: .utf8)
                             } catch {
                                 body = nil
                             }
@@ -255,7 +261,7 @@ final class NVIDIAAPIService {
 
     // MARK: - Private
 
-    private func buildRequest(
+    private nonisolated func buildRequest(
         endpoint: String,
         apiKey: String,
         model: String,
@@ -274,7 +280,7 @@ final class NVIDIAAPIService {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = TimeInterval(settings.requestTimeout)
+        request.timeoutInterval = self.requestTimeout
 
         let body = ChatCompletionRequest(
             model: model,

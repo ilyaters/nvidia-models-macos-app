@@ -9,7 +9,7 @@ struct GlassWindowModifier: ViewModifier {
     func body(content: Content) -> some View {
         if #available(macOS 26, *) {
             content
-                .background(.glass)
+                .background(.ultraThinMaterial)
         } else {
             content
                 .background(VisualEffectView(material: .hudWindow))

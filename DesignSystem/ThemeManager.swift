@@ -51,6 +51,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 
 /// Observable theme manager that reads/writes the appearance preference.
 @Observable
+@MainActor
 final class ThemeManager {
     static let shared = ThemeManager()
 

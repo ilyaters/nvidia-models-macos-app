@@ -1,7 +1,7 @@
 import Foundation
 
 /// Searches the web via Google Custom Search JSON API for research mode.
-final class GoogleSearchService {
+final class GoogleSearchService: @unchecked Sendable {
     private let session: URLSession
     private let decoder = JSONDecoder()
 

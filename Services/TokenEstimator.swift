@@ -25,8 +25,8 @@ struct TokenEstimator {
         let cyrillicRatio = Double(cyrillicCount) / Double(totalChars)
 
         // Blend the ratios based on the proportion of Cyrillic characters.
-        let effectiveCharsPerToken = englishCharsPerToken * (1 - cyrillicRatio)
-            + cyrillicCharsPerToken * cyrillicRatio
+        let effectiveCharsPerToken = Self.englishCharsPerToken * (1 - cyrillicRatio)
+            + Self.cyrillicCharsPerToken * cyrillicRatio
 
         return max(1, Int(ceil(Double(totalChars) / effectiveCharsPerToken)))
     }

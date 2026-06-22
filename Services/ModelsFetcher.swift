@@ -1,7 +1,7 @@
 import Foundation
 
 /// Fetches the list of available models from the NVIDIA API.
-final class ModelsFetcher {
+final class ModelsFetcher: @unchecked Sendable {
     private let session: URLSession
     private let decoder = JSONDecoder()
 

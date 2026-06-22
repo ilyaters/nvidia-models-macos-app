@@ -91,7 +91,7 @@ struct ChatInputView: View {
                 } label: {
                     Image(systemName: viewModel.researchMode ? "magnifyingglass.circle.fill" : "magnifyingglass.circle")
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(viewModel.researchMode ? .accent : .secondary)
+                        .foregroundStyle(viewModel.researchMode ? Color.accentColor : Color.secondary)
                 }
                 .buttonStyle(.borderless)
                 .help("Web search (research mode)")

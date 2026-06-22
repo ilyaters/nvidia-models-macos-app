@@ -31,7 +31,7 @@ struct GlassButtonStyle: ButtonStyle {
         if prominence == .prominent {
             if #available(macOS 26, *) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(.glass)
+                    .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.accentColor.opacity(0.3))
@@ -43,7 +43,7 @@ struct GlassButtonStyle: ButtonStyle {
         } else {
             if #available(macOS 26, *) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(.glass)
+                    .fill(.ultraThinMaterial)
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(.quaternary.opacity(0.5))
