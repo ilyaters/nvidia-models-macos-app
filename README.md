@@ -1,6 +1,6 @@
 # NVIDIA LLM Client for macOS
 
-A native macOS application for accessing all NVIDIA LLM models via the [`integrate.api.nvidia.com/v1/chat/completions`](https://build.nvidia.com) API.
+A native macOS application for accessing all hosted LLM at NVIDIA via the [`integrate.api.nvidia.com/v1/chat/completions`](https://build.nvidia.com) API.
 
 ---
 
