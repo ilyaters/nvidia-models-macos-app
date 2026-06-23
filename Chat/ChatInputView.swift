@@ -26,18 +26,68 @@ struct ChatInputView: View {
                 .padding(.top, 8)
             }
 
-            // System prompt editor (collapsible)
+            // Per-conversation settings (collapsible)
             if viewModel.isSystemPromptExpanded {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("System Prompt", systemImage: "gearshape")
-                        .font(.caption)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.secondary)
-                    TextEditor(text: $viewModel.systemPromptOverride)
-                        .font(.system(size: 12))
-                        .frame(height: 60)
-                        .padding(4)
-                        .glassBackground(cornerRadius: 6)
+                VStack(alignment: .leading, spacing: 8) {
+                    // Per-chat model selector
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Model for this chat", systemImage: "cpu")
+                            .font(.caption)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.secondary)
+                        Picker("Model", selection: Binding(
+                            get: { viewModel.currentConversation?.modelId ?? viewModel.selectedModelId },
+                            set: { newModelId in
+                                viewModel.selectedModelId = newModelId
+                                viewModel.currentConversation?.modelId = newModelId
+                                try? modelContext.save()
+                            }
+                        )) {
+                            if viewModel.availableModels.isEmpty {
+                                Text("No models loaded").tag("")
+                            }
+                            ForEach(viewModel.availableModels) { model in
+                                Text(model.displayName).tag(model.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    Divider()
+
+                    // Per-chat API key
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("API key for this chat (optional)", systemImage: "key.fill")
+                            .font(.caption)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.secondary)
+                        SecureField("Use global key", text: Binding(
+                            get: { viewModel.currentConversation?.apiKey ?? "" },
+                            set: { newKey in
+                                viewModel.currentConversation?.apiKey = newKey.isEmpty ? nil : newKey
+                                try? modelContext.save()
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        Text("Leave empty to use the global API key from Settings.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Divider()
+
+                    // System prompt
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("System Prompt", systemImage: "gearshape")
+                            .font(.caption)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.secondary)
+                        TextEditor(text: $viewModel.systemPromptOverride)
+                            .font(.system(size: 12))
+                            .frame(height: 60)
+                            .padding(4)
+                            .glassBackground(cornerRadius: 6)
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
@@ -45,8 +95,15 @@ struct ChatInputView: View {
 
             // Toolbar: model selector, parameters, research toggle
             HStack(spacing: 8) {
-                // Model selector
-                Picker("Model", selection: $viewModel.selectedModelId) {
+                // Model selector — also saves to the current conversation
+                Picker("Model", selection: Binding(
+                    get: { viewModel.selectedModelId },
+                    set: { newModelId in
+                        viewModel.selectedModelId = newModelId
+                        viewModel.currentConversation?.modelId = newModelId
+                        try? modelContext.save()
+                    }
+                )) {
                     if viewModel.availableModels.isEmpty {
                         Text("No models loaded").tag("")
                     }
@@ -143,7 +200,11 @@ struct ChatInputView: View {
                     }
 
                 Button {
-                    Task { await viewModel.sendMessage(modelContext: modelContext) }
+                    if viewModel.isStreaming {
+                        viewModel.stopGeneration()
+                    } else {
+                        Task { await viewModel.sendMessage(modelContext: modelContext) }
+                    }
                 } label: {
                     Image(systemName: viewModel.isStreaming ? "stop.fill" : "arrow.up.circle.fill")
                         .font(.system(size: 24))
@@ -152,7 +213,7 @@ struct ChatInputView: View {
                 .buttonStyle(.borderless)
                 .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isStreaming)
                 .keyboardShortcut(.return, modifiers: .command)
-                .help("Send (Cmd+Enter)")
+                .help(viewModel.isStreaming ? "Stop generation" : "Send (Cmd+Enter)")
             }
             .padding(.horizontal)
             .padding(.bottom, 8)

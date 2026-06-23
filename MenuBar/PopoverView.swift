@@ -3,11 +3,16 @@ import SwiftData
 import AppKit
 
 /// Quick chat popover for the menu bar.
+///
+/// Shares the same `ChatViewModel` as the main window so messages stay in sync
+/// between the bar popover and the main window.
 struct PopoverView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
-    @State private var viewModel = PopoverViewModel()
+
+    /// Shared view model — same instance as the main window.
+    @State private var viewModel = ChatViewModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,28 +35,38 @@ struct PopoverView: View {
 
             Divider()
 
-            // Messages
+            // Messages — shows the current conversation's messages
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        if viewModel.messages.isEmpty {
+                        if let conversation = viewModel.currentConversation,
+                           conversation.messages.isEmpty {
                             Text("Quick chat — type a message below")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 20)
+                        } else if viewModel.currentConversation == nil {
+                            Text("No conversation — open main window")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 20)
                         }
-                        ForEach(viewModel.messages) { message in
-                            MessageBubbleView(
-                                message: message,
-                                isStreaming: viewModel.isStreaming && message.id == viewModel.messages.last?.id && message.role == .assistant
-                            )
-                            .id(message.id)
+                        if let conversation = viewModel.currentConversation {
+                            let sortedMessages = conversation.messages.sorted { $0.timestamp < $1.timestamp }
+                            ForEach(sortedMessages) { message in
+                                MessageBubbleView(
+                                    message: message,
+                                    isStreaming: viewModel.isStreaming && message.id == sortedMessages.last?.id && message.role == .assistant
+                                )
+                                .id(message.id)
+                            }
                         }
                     }
                     .padding(.vertical, 8)
                 }
-                .onChange(of: viewModel.messages.count) { _, _ in
-                    if let last = viewModel.messages.last {
+                .onChange(of: viewModel.currentConversation?.messages.count) { _, _ in
+                    if let conversation = viewModel.currentConversation,
+                       let last = conversation.messages.sorted(by: { $0.timestamp < $1.timestamp }).last {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
                 }
@@ -74,31 +89,35 @@ struct PopoverView: View {
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
                     .onSubmit {
-                        Task { await viewModel.send(modelContext: modelContext) }
+                        Task { await viewModel.sendMessage(modelContext: modelContext) }
                     }
 
                 Button {
-                    Task { await viewModel.send(modelContext: modelContext) }
+                    if viewModel.isStreaming {
+                        viewModel.stopGeneration()
+                    } else {
+                        Task { await viewModel.sendMessage(modelContext: modelContext) }
+                    }
                 } label: {
                     Image(systemName: viewModel.isStreaming ? "stop.fill" : "arrow.up.circle.fill")
                         .font(.system(size: 20))
                         .symbolRenderingMode(.hierarchical)
                 }
                 .buttonStyle(.borderless)
-                .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isStreaming)
             }
             .padding(8)
 
             // Footer
             HStack {
-                if !viewModel.messages.isEmpty {
-                    Button("Clear", role: .destructive) {
-                        viewModel.clear()
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
+                Button("New Chat") {
+                    viewModel.createNewConversation(modelContext: modelContext)
                 }
+                .buttonStyle(.borderless)
+                .font(.caption)
+
                 Spacer()
+
                 Button("Settings") {
                     openSettings()
                 }
@@ -109,6 +128,8 @@ struct PopoverView: View {
             .padding(.bottom, 8)
         }
         .frame(width: 360)
-        .onAppear { viewModel.configure() }
+        .onAppear {
+            viewModel.configure(modelContext: modelContext)
+        }
     }
 }

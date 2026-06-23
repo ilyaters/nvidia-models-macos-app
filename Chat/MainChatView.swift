@@ -4,12 +4,13 @@ import SwiftData
 /// Main chat window with sidebar + message thread + input.
 struct MainChatView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var viewModel = ChatViewModel()
+    @State private var viewModel = ChatViewModel.shared
 
     var body: some View {
         NavigationSplitView {
             ChatSidebar(viewModel: viewModel)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 250)
+                .glassBackground(cornerRadius: 0)
         } detail: {
             VStack(spacing: 0) {
                 if let conversation = viewModel.currentConversation {
@@ -32,7 +33,7 @@ struct MainChatView: View {
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 8)
-                    .background(.bar)
+                    .glassBackground(cornerRadius: 0)
 
                     // Message thread (sorted by timestamp for correct order)
                     MessageThreadView(

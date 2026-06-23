@@ -10,6 +10,10 @@ import Observation
 @MainActor
 @Observable
 final class ChatViewModel {
+
+    /// Shared singleton so the menu bar popover and main window stay in sync.
+    static let shared = ChatViewModel()
+
     // MARK: - Dependencies
     private let apiService: NVIDIAAPIService
     private let modelsFetcher: ModelsFetcher
@@ -48,6 +52,10 @@ final class ChatViewModel {
 
     /// Last user message text, stored for retry.
     private var lastSentText: String = ""
+
+    /// Currently running streaming task. Stored so it can be cancelled to
+    /// stop generation.
+    private var streamingTask: Task<Void, Never>?
 
     init(
         apiService: NVIDIAAPIService = NVIDIAAPIService(),
@@ -177,7 +185,11 @@ final class ChatViewModel {
         guard !isStreaming else { return }
         let userText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !userText.isEmpty else { return }
-        guard !apiKey.isEmpty else {
+
+        // Use per-conversation API key if set, otherwise fall back to the
+        // global key from Keychain.
+        let effectiveAPIKey = conversation.apiKey?.isEmpty == false ? conversation.apiKey! : apiKey
+        guard !effectiveAPIKey.isEmpty else {
             errorMessage = "Please set your NVIDIA API key in Settings."
             return
         }
@@ -220,8 +232,11 @@ final class ChatViewModel {
             apiMessages.append(APIRequestMessage(role: msg.role.rawValue, content: msg.content))
         }
 
+        // Use per-conversation model if set, otherwise the selected model.
+        let effectiveModelId = conversation.modelId.isEmpty ? selectedModelId : conversation.modelId
+
         // Create placeholder assistant message for streaming.
-        let assistantMessage = Message(role: .assistant, content: "", modelId: selectedModelId)
+        let assistantMessage = Message(role: .assistant, content: "", modelId: effectiveModelId)
         assistantMessage.conversation = conversation
         modelContext.insert(assistantMessage)
 
@@ -240,54 +255,67 @@ final class ChatViewModel {
         // Start latency tracking.
         latencyTracker.start()
 
-        // Stream the response.
+        // Stream the response. Wrapped in a stored Task so it can be cancelled.
         var outputTokenCount = 0
 
-        for await event in apiService.streamChat(
-            endpoint: settings.apiEndpoint,
-            apiKey: apiKey,
-            model: selectedModelId,
-            messages: apiMessages,
-            params: params
-        ) {
-            switch event {
-            case .delta(let text):
-                if latencyTracker.timeToFirstTokenMs == 0 {
-                    latencyTracker.recordFirstToken()
-                }
-                assistantMessage.content += text
-                outputTokenCount += 1
+        streamingTask = Task {
+            for await event in apiService.streamChat(
+                endpoint: settings.apiEndpoint,
+                apiKey: effectiveAPIKey,
+                model: effectiveModelId,
+                messages: apiMessages,
+                params: params
+            ) {
+                if Task.isCancelled { break }
 
-            case .complete(let usage):
-                latencyTracker.finish()
+                switch event {
+                case .delta(let text):
+                    if latencyTracker.timeToFirstTokenMs == 0 {
+                        latencyTracker.recordFirstToken()
+                    }
+                    assistantMessage.content += text
+                    outputTokenCount += 1
 
-                // Update message with token counts.
-                assistantMessage.inputTokens = usage?.promptTokens ?? 0
-                assistantMessage.outputTokens = usage?.completionTokens ?? outputTokenCount
-                assistantMessage.totalTokens = usage?.totalTokens ?? 0
-                assistantMessage.responseTimeMs = latencyTracker.totalResponseTimeMs
+                case .complete(let usage):
+                    latencyTracker.finish()
 
-                // Save usage record for metrics.
-                metricsStore?.saveUsageRecord(
-                    modelId: selectedModelId,
-                    conversationId: conversation.id,
-                    usage: usage,
-                    latency: latencyTracker,
-                    outputTokenCount: outputTokenCount
-                )
+                    // Update message with token counts.
+                    assistantMessage.inputTokens = usage?.promptTokens ?? 0
+                    assistantMessage.outputTokens = usage?.completionTokens ?? outputTokenCount
+                    assistantMessage.totalTokens = usage?.totalTokens ?? 0
+                    assistantMessage.responseTimeMs = latencyTracker.totalResponseTimeMs
 
-            case .error(let error):
-                errorMessage = error.localizedDescription
-                if assistantMessage.content.isEmpty {
-                    modelContext.delete(assistantMessage)
+                    // Save usage record for metrics.
+                    metricsStore?.saveUsageRecord(
+                        modelId: effectiveModelId,
+                        conversationId: conversation.id,
+                        usage: usage,
+                        latency: latencyTracker,
+                        outputTokenCount: outputTokenCount
+                    )
+
+                case .error(let error):
+                    errorMessage = error.localizedDescription
+                    if assistantMessage.content.isEmpty {
+                        modelContext.delete(assistantMessage)
+                    }
                 }
             }
+
+            conversation.updatedAt = .now
+            try? modelContext.save()
+            isStreaming = false
+            updateContextEstimation()
         }
 
-        conversation.updatedAt = .now
-        try? modelContext.save()
+        await streamingTask?.value
+    }
+
+    /// Stops the currently running streaming generation.
+    func stopGeneration() {
+        streamingTask?.cancel()
+        streamingTask = nil
         isStreaming = false
-        updateContextEstimation()
     }
 
     // MARK: - Web Search

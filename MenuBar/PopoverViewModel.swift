@@ -18,6 +18,9 @@ final class PopoverViewModel {
     var selectedModelId: String = ""
     var apiKey: String = ""
 
+    /// Currently running streaming task. Stored so it can be cancelled.
+    private var streamingTask: Task<Void, Never>?
+
     init(apiService: NVIDIAAPIService = NVIDIAAPIService()) {
         self.apiService = apiService
     }
@@ -65,33 +68,46 @@ final class PopoverViewModel {
         latencyTracker.start()
         var outputTokenCount = 0
 
-        for await event in apiService.streamChat(
-            endpoint: settings.apiEndpoint,
-            apiKey: apiKey,
-            model: selectedModelId,
-            messages: apiMessages,
-            params: params
-        ) {
-            switch event {
-            case .delta(let text):
-                if latencyTracker.timeToFirstTokenMs == 0 {
-                    latencyTracker.recordFirstToken()
+        streamingTask = Task {
+            for await event in apiService.streamChat(
+                endpoint: settings.apiEndpoint,
+                apiKey: apiKey,
+                model: selectedModelId,
+                messages: apiMessages,
+                params: params
+            ) {
+                if Task.isCancelled { break }
+
+                switch event {
+                case .delta(let text):
+                    if latencyTracker.timeToFirstTokenMs == 0 {
+                        latencyTracker.recordFirstToken()
+                    }
+                    assistantMessage.content += text
+                    outputTokenCount += 1
+
+                case .complete(let usage):
+                    latencyTracker.finish()
+                    assistantMessage.inputTokens = usage?.promptTokens ?? 0
+                    assistantMessage.outputTokens = usage?.completionTokens ?? outputTokenCount
+                    assistantMessage.totalTokens = usage?.totalTokens ?? 0
+                    assistantMessage.responseTimeMs = latencyTracker.totalResponseTimeMs
+
+                case .error(let error):
+                    errorMessage = error.localizedDescription
                 }
-                assistantMessage.content += text
-                outputTokenCount += 1
-
-            case .complete(let usage):
-                latencyTracker.finish()
-                assistantMessage.inputTokens = usage?.promptTokens ?? 0
-                assistantMessage.outputTokens = usage?.completionTokens ?? outputTokenCount
-                assistantMessage.totalTokens = usage?.totalTokens ?? 0
-                assistantMessage.responseTimeMs = latencyTracker.totalResponseTimeMs
-
-            case .error(let error):
-                errorMessage = error.localizedDescription
             }
+
+            isStreaming = false
         }
 
+        await streamingTask?.value
+    }
+
+    /// Stops the currently running streaming generation.
+    func stopGeneration() {
+        streamingTask?.cancel()
+        streamingTask = nil
         isStreaming = false
     }
 
