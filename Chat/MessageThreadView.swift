@@ -5,6 +5,10 @@ struct MessageThreadView: View {
     let messages: [Message]
     let isStreaming: Bool
 
+    var onResend: ((Message) -> Void)?
+    var onEdit: ((Message, String) -> Void)?
+    var onCopyChat: (() -> Void)?
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -15,7 +19,10 @@ struct MessageThreadView: View {
                         ForEach(messages) { message in
                             MessageBubbleView(
                                 message: message,
-                                isStreaming: isStreaming && message.id == messages.last?.id && message.role == .assistant
+                                isStreaming: isStreaming && message.id == messages.last?.id && message.role == .assistant,
+                                onResend: onResend,
+                                onEdit: onEdit,
+                                onCopyChat: onCopyChat
                             )
                             .id(message.id)
                         }

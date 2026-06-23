@@ -318,6 +318,71 @@ final class ChatViewModel {
         isStreaming = false
     }
 
+    // MARK: - Message Actions
+
+    /// Resends a specific user message — removes all messages after it and
+    /// regenerates the response.
+    func resend(from message: Message, modelContext: ModelContext) async {
+        guard let conversation = currentConversation else { return }
+        guard message.role == .user else { return }
+
+        // Remove all messages after the specified user message.
+        let messagesToRemove = conversation.messages.filter { $0.timestamp > message.timestamp }
+        for msg in messagesToRemove {
+            modelContext.delete(msg)
+        }
+
+        // Remove the user message itself (sendMessage will re-add it).
+        let userText = message.content
+        modelContext.delete(message)
+        try? modelContext.save()
+
+        inputText = userText
+        await sendMessage(modelContext: modelContext)
+    }
+
+    /// Edits a user message's content and regenerates the response.
+    func editMessage(_ message: Message, newContent: String, modelContext: ModelContext) async {
+        guard message.role == .user else { return }
+        guard let conversation = currentConversation else { return }
+
+        // Remove all messages after the edited message.
+        let messagesToRemove = conversation.messages.filter { $0.timestamp > message.timestamp }
+        for msg in messagesToRemove {
+            modelContext.delete(msg)
+        }
+
+        // Update the message content.
+        message.content = newContent
+        try? modelContext.save()
+
+        // Resend from this message.
+        let userText = newContent
+        modelContext.delete(message)
+        try? modelContext.save()
+
+        inputText = userText
+        await sendMessage(modelContext: modelContext)
+    }
+
+    /// Copies the entire conversation as formatted text.
+    func copyConversation() -> String {
+        guard let conversation = currentConversation else { return "" }
+
+        var result = "# \(conversation.title)\n\n"
+        if let prompt = conversation.systemPrompt, !prompt.isEmpty {
+            result += "**System:** \(prompt)\n\n"
+        }
+
+        let sortedMessages = conversation.messages.sorted { $0.timestamp < $1.timestamp }
+        for msg in sortedMessages {
+            let role = msg.role.rawValue.capitalized
+            result += "**\(role):** \(msg.content)\n\n"
+        }
+
+        return result
+    }
+
     // MARK: - Web Search
 
     private func fetchSearchResults(for query: String) async {

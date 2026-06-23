@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 /// Main chat window with sidebar + message thread + input.
 struct MainChatView: View {
@@ -38,7 +39,18 @@ struct MainChatView: View {
                     // Message thread (sorted by timestamp for correct order)
                     MessageThreadView(
                         messages: conversation.messages.sorted { $0.timestamp < $1.timestamp },
-                        isStreaming: viewModel.isStreaming
+                        isStreaming: viewModel.isStreaming,
+                        onResend: { message in
+                            Task { await viewModel.resend(from: message, modelContext: modelContext) }
+                        },
+                        onEdit: { message, newContent in
+                            Task { await viewModel.editMessage(message, newContent: newContent, modelContext: modelContext) }
+                        },
+                        onCopyChat: {
+                            let chatText = viewModel.copyConversation()
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(chatText, forType: .string)
+                        }
                     )
 
                     Divider()

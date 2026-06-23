@@ -2,9 +2,19 @@ import SwiftUI
 import MarkdownUI
 
 /// Renders a single chat message bubble with Liquid Glass styling.
+///
+/// Includes a context menu (right-click) with actions: copy message, copy
+/// request/response, resend, edit, and copy entire chat.
 struct MessageBubbleView: View {
     let message: Message
     let isStreaming: Bool
+
+    var onResend: ((Message) -> Void)?
+    var onEdit: ((Message, String) -> Void)?
+    var onCopyChat: (() -> Void)?
+
+    @State private var showEditSheet = false
+    @State private var editText = ""
 
     var body: some View {
         HStack {
@@ -61,5 +71,102 @@ struct MessageBubbleView: View {
             }
         }
         .padding(.horizontal)
+        .contextMenu {
+            // Copy message content
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(message.content, forType: .string)
+            } label: {
+                Label("Copy Message", systemImage: "doc.on.doc")
+            }
+
+            // Copy as request (user) or response (assistant)
+            if message.role == .user {
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(message.content, forType: .string)
+                } label: {
+                    Label("Copy Request", systemImage: "arrow.up.doc")
+                }
+            } else {
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(message.content, forType: .string)
+                } label: {
+                    Label("Copy Response", systemImage: "arrow.down.doc")
+                }
+            }
+
+            Divider()
+
+            // Resend (only for user messages)
+            if message.role == .user {
+                Button {
+                    onResend?(message)
+                } label: {
+                    Label("Resend", systemImage: "arrow.clockwise")
+                }
+                .disabled(isStreaming)
+
+                Button {
+                    editText = message.content
+                    showEditSheet = true
+                } label: {
+                    Label("Edit & Resend", systemImage: "pencil")
+                }
+                .disabled(isStreaming)
+            }
+
+            // Copy entire chat
+            Button {
+                onCopyChat?()
+            } label: {
+                Label("Copy Chat", systemImage: "doc.on.doc.fill")
+            }
+        }
+        .sheet(isPresented: $showEditSheet) {
+            EditMessageSheet(
+                text: $editText,
+                onSave: {
+                    showEditSheet = false
+                    onEdit?(message, editText)
+                },
+                onCancel: {
+                    showEditSheet = false
+                }
+            )
+        }
+    }
+}
+
+/// Sheet for editing a user message before resending.
+private struct EditMessageSheet: View {
+    @Binding var text: String
+    let onSave: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Edit Message")
+                .font(.headline)
+
+            TextEditor(text: $text)
+                .font(.body)
+                .frame(minHeight: 100, maxHeight: 200)
+                .padding(4)
+                .glassBackground(cornerRadius: 8)
+
+            HStack {
+                Button("Cancel", role: .cancel, action: onCancel)
+                    .keyboardShortcut(.escape)
+                Spacer()
+                Button("Send", action: onSave)
+                    .keyboardShortcut(.return)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding()
+        .frame(width: 400)
     }
 }
