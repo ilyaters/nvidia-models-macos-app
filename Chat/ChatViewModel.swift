@@ -242,7 +242,6 @@ final class ChatViewModel {
 
         // Stream the response.
         var outputTokenCount = 0
-        var finalUsage: Usage?
 
         for await event in apiService.streamChat(
             endpoint: settings.apiEndpoint,
@@ -260,7 +259,6 @@ final class ChatViewModel {
                 outputTokenCount += 1
 
             case .complete(let usage):
-                finalUsage = usage
                 latencyTracker.finish()
 
                 // Update message with token counts.

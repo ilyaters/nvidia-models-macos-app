@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// SwiftUI normally auto-generates this menu for bundled apps, but a bare
     /// SPM executable has none. Without it there is no "Settings…" item and no
     /// responder for `showSettingsWindow:` / `Cmd+,`.
+    @MainActor
     private func installMainMenu() {
         let mainMenu = NSMenu()
 
@@ -81,15 +82,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///
     /// The string is expected in the format `cmd+shift+n`. On activation it
     /// brings the main window to the front (or reopens it if closed).
+    @MainActor
     private func registerGlobalHotkey() {
         let raw = AppSettings.shared.globalHotkey
-        globalHotKey = HotKey(combination: raw)
-        globalHotKey?.keyDown = { [weak self] in
+        let (key, modifiers) = Self.parseHotkey(raw)
+        guard let key else { return }
+        globalHotKey = HotKey(key: key, modifiers: modifiers)
+        globalHotKey?.keyDownHandler = { [weak self] in
             self?.activateMainWindow()
         }
     }
 
     /// Brings the main window to the front, reopening it if necessary.
+    @MainActor
     private func activateMainWindow() {
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.title == "NVIDIA LLM" }) {
@@ -97,5 +102,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             NSApp.sendAction(Selector(("showMainWindow:")), to: nil, from: nil)
         }
+    }
+
+    /// Parses a hotkey string like `cmd+shift+n` into a `Key` and modifier flags.
+    private static func parseHotkey(_ raw: String) -> (Key?, NSEvent.ModifierFlags) {
+        let tokens = raw.lowercased().split(separator: "+").map { String($0).trimmingCharacters(in: .whitespaces) }
+        var modifiers: NSEvent.ModifierFlags = []
+        var key: Key?
+
+        for token in tokens {
+            switch token {
+            case "cmd", "command":
+                modifiers.insert(.command)
+            case "shift":
+                modifiers.insert(.shift)
+            case "alt", "option", "opt":
+                modifiers.insert(.option)
+            case "ctrl", "control":
+                modifiers.insert(.control)
+            default:
+                key = Key(character: token)
+            }
+        }
+        return (key, modifiers)
     }
 }
