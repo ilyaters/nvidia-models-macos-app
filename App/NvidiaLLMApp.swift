@@ -27,7 +27,21 @@ struct NvidiaLLMApp: App {
                 )
             )
         } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
+            // Migration failed — the existing store has an incompatible schema.
+            // Delete the old store and create a fresh one.
+            print("ModelContainer failed, attempting to reset store: \(error)")
+            ModelContainer.deleteAllData()
+            
+            do {
+                modelContainer = try ModelContainer(
+                    for: Conversation.self, Message.self, UsageRecord.self,
+                    configurations: ModelConfiguration(
+                        isStoredInMemoryOnly: false
+                    )
+                )
+            } catch {
+                fatalError("Failed to create ModelContainer after reset: \(error)")
+            }
         }
     }
 
