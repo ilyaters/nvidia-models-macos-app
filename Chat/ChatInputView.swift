@@ -72,7 +72,7 @@ struct ChatInputView: View {
                         TextField("Use global endpoint", text: Binding(
                             get: { conversation?.apiEndpoint ?? "" },
                             set: { newEndpoint in
-                                conversation?.apiEndpoint = newEndpoint
+                                conversation?.apiEndpoint = newEndpoint.isEmpty ? nil : newEndpoint
                                 try? modelContext.save()
                             }
                         ))

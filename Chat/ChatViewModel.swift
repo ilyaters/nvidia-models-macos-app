@@ -126,7 +126,7 @@ final class ChatViewModel {
         guard !modelId.isEmpty else { return }
 
         let effectiveKey = conversation.apiKey?.isEmpty == false ? conversation.apiKey! : apiKey
-        let effectiveEndpoint = conversation.apiEndpoint.isEmpty ? settings.apiEndpoint : conversation.apiEndpoint
+        let effectiveEndpoint = conversation.apiEndpoint?.isEmpty == false ? conversation.apiEndpoint! : settings.apiEndpoint
 
         await healthCheck.check(
             model: modelId,
@@ -163,6 +163,7 @@ final class ChatViewModel {
         let conversation = Conversation(
             modelId: settings.defaultModelId,
             apiEndpoint: settings.apiEndpoint,
+            apiKey: nil,
             systemPrompt: settings.defaultSystemPrompt.isEmpty ? nil : settings.defaultSystemPrompt,
             temperature: settings.defaultTemperature,
             topP: settings.defaultTopP,
@@ -248,7 +249,7 @@ final class ChatViewModel {
         }
 
         // Use per-conversation endpoint if set, otherwise global.
-        let effectiveEndpoint = conversation.apiEndpoint.isEmpty ? settings.apiEndpoint : conversation.apiEndpoint
+        let effectiveEndpoint = conversation.apiEndpoint?.isEmpty == false ? conversation.apiEndpoint! : settings.apiEndpoint
 
         // Use per-conversation model.
         let effectiveModelId = conversation.modelId.isEmpty ? settings.defaultModelId : conversation.modelId
