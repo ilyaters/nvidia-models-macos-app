@@ -121,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "ctrl", "control":
                 modifiers.insert(.control)
             default:
-                key = Key(character: token)
+                key = Key(string: token)
             }
         }
         return (key, modifiers)
