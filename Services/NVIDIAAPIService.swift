@@ -282,6 +282,14 @@ final class NVIDIAAPIService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = self.requestTimeout
 
+        // Only include stream_options for the default NVIDIA endpoint.
+        // Some custom endpoints don't support stream_options and return
+        // HTTP 400 "extra_forbidden".
+        let isNvidiaEndpoint = endpoint.contains("integrate.api.nvidia.com")
+        let streamOptions: StreamOptions? = (stream && isNvidiaEndpoint)
+            ? StreamOptions(includeUsage: true)
+            : nil
+
         let body = ChatCompletionRequest(
             model: model,
             messages: messages,
@@ -293,7 +301,7 @@ final class NVIDIAAPIService {
             stop: params.stop,
             seed: params.seed,
             stream: stream,
-            streamOptions: stream ? StreamOptions(includeUsage: true) : nil,
+            streamOptions: streamOptions,
             chatTemplateKwargs: params.thinkingMode.map { ["thinking_mode": $0 ? "on" : "off"] }
         )
 

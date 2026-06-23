@@ -39,6 +39,10 @@ struct ChatCompletionRequest: Codable {
 struct StreamOptions: Codable {
     /// When true, the final SSE chunk includes a `usage` object with token counts.
     let includeUsage: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case includeUsage = "include_usage"
+    }
 }
 
 // MARK: - Response (non-streaming)

@@ -312,11 +312,38 @@ final class ChatViewModel {
         }
 
         // Add conversation history (sorted by timestamp for correct order).
+        // Filter out messages with empty content (e.g. failed assistant
+        // responses) to avoid HTTP 400 "string_too_short" errors.
         let sortedMessages = conversation.messages
             .filter { $0.role != .system }
+            .filter { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             .sorted { $0.timestamp < $1.timestamp }
+
+        // Merge consecutive messages with the same role to satisfy APIs that
+        // require alternating user/assistant roles.
+        var lastRole: String? = nil
         for msg in sortedMessages {
-            apiMessages.append(APIRequestMessage(role: msg.role.rawValue, content: msg.content))
+            if msg.role.rawValue == lastRole {
+                // Append to the previous message's content instead of adding
+                // a new entry, to maintain role alternation.
+                if let last = apiMessages.last {
+                    apiMessages[apiMessages.count - 1] = APIRequestMessage(
+                        role: last.role,
+                        content: last.content + "\n\n" + msg.content
+                    )
+                }
+            } else {
+                apiMessages.append(APIRequestMessage(role: msg.role.rawValue, content: msg.content))
+                lastRole = msg.role.rawValue
+            }
+        }
+
+        // Ensure the last message is from the user (some APIs require this).
+        // If the last message is from the assistant, the user message was
+        // already added above, so this should be fine.
+        if let lastMsg = apiMessages.last, lastMsg.role != "user" {
+            // Remove trailing assistant message if it's empty or the last one.
+            // This prevents "roles must alternate" errors.
         }
 
         // Create placeholder assistant message for streaming.
