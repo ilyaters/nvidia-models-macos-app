@@ -2,6 +2,9 @@
 
 > ⚠️ Это macOS-приложение (AppKit/SwiftUI/SwiftData). Его **нельзя** собрать или
 > запустить на Windows. Нужен Mac с macOS 15.0+ (Sequoia) и Xcode 16.0+.
+>
+> ✅ Тестовая сборка выполняется на **macOS Tahoe 26.5.1** с Xcode 26. Приложение
+> использует Liquid Glass на macOS 26+ (см. [`GlassWindowModifier`](../DesignSystem/GlassWindowModifier.swift:10)).
 
 Проект «запакован» для автоматической установки: есть XcodeGen-спецификация
 ([`project.yml`](../project.yml:1)), скрипт одной команды
@@ -131,8 +134,12 @@ swift run NvidiaLLM
 
 | Компонент | Версия |
 |-----------|--------|
-| macOS | 15.0+ (Sequoia); 26+ (Tahoe) для Liquid Glass |
-| Xcode | 16.0+ |
+| macOS | 15.0+ (Sequoia); **26.5.1 (Tahoe)** — тестовая платформа, для Liquid Glass |
+| Xcode | 16.0+; **26** — для сборки на Tahoe |
 | Swift | 6.0+ |
 | Архитектура | Apple Silicon (M1/M2/M3/M4) |
 | NVIDIA API | Ключ с [build.nvidia.com](https://build.nvidia.com) |
+
+> На macOS Tahoe 26+ приложение использует нативный Liquid Glass-материал
+> (`.ultraThinMaterial`); на более ранних версиях — fallback на
+> `NSVisualEffectView` (см. [`GlassWindowModifier.swift`](../DesignSystem/GlassWindowModifier.swift:10)).
