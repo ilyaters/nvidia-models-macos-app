@@ -10,24 +10,28 @@ struct ModelSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Default Model") {
+            Section {
                 TextField("Model ID", text: $defaultModelId)
                     .textFieldStyle(.roundedBorder)
-                Text("This model is selected by default for new conversations.")
+                Text("Selected by default for new conversations.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                Label("Default Model", systemImage: "cpu")
             }
 
-            Section("Default System Prompt") {
+            Section {
                 TextEditor(text: $defaultSystemPrompt)
                     .font(.system(size: 12))
                     .frame(height: 80)
-                Text("Applied to new conversations. Can be overridden per-conversation.")
+                Text("Applied to new conversations. Can be overridden per-chat.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                Label("System Prompt", systemImage: "text.bubble")
             }
 
-            Section("Default Parameters") {
+            Section {
                 GlassSliderStyle(value: $defaultTemperature, in: 0...2) {
                     Text("Temperature")
                 }
@@ -36,10 +40,14 @@ struct ModelSettingsView: View {
                 }
                 HStack {
                     Text("Max Tokens")
+                    Spacer()
                     Stepper(value: $defaultMaxTokens, in: 1...32768, step: 128) {
                         Text("\(defaultMaxTokens)")
+                            .font(.system(.body, design: .monospaced))
                     }
                 }
+            } header: {
+                Label("Sampling Parameters", systemImage: "slider.horizontal.3")
             }
         }
         .formStyle(.grouped)

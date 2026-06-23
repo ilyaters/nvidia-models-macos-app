@@ -9,7 +9,7 @@ struct SearchSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Google Custom Search") {
+            Section {
                 Toggle("Enable web search (research mode)", isOn: $searchEnabled)
 
                 SecureField("API Key", text: $searchApiKey)
@@ -18,23 +18,31 @@ struct SearchSettingsView: View {
                 TextField("Search Engine ID (CX)", text: $searchEngineId)
                     .textFieldStyle(.roundedBorder)
 
-                HStack {
-                    Button("Save Credentials") {
-                        KeychainManager.save(searchApiKey, for: "google_search_api_key")
-                        KeychainManager.save(searchEngineId, for: "google_search_cx")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(searchApiKey.isEmpty || searchEngineId.isEmpty)
+                Button {
+                    KeychainManager.save(searchApiKey, for: "google_search_api_key")
+                    KeychainManager.save(searchEngineId, for: "google_search_cx")
+                } label: {
+                    Label("Save Credentials", systemImage: "lock.fill")
                 }
-            }
-
-            Section("Results") {
-                Stepper("Max results: \(maxResults)", value: $maxResults, in: 1...10)
+                .buttonStyle(.borderedProminent)
+                .disabled(searchApiKey.isEmpty || searchEngineId.isEmpty)
+            } header: {
+                Label("Google Custom Search", systemImage: "magnifyingglass")
             }
 
             Section {
-                Link("Get API Key", destination: URL(string: "https://console.cloud.google.com/apis/credentials")!)
-                Link("Create Search Engine", destination: URL(string: "https://programmablesearchengine.google.com")!)
+                Stepper("Max results: \(maxResults)", value: $maxResults, in: 1...10)
+            } header: {
+                Label("Results", systemImage: "list.number")
+            }
+
+            Section {
+                Link(destination: URL(string: "https://console.cloud.google.com/apis/credentials")!) {
+                    Label("Get API Key →", systemImage: "arrow.up.right.square")
+                }
+                Link(destination: URL(string: "https://programmablesearchengine.google.com")!) {
+                    Label("Create Search Engine →", systemImage: "arrow.up.right.square")
+                }
             }
         }
         .formStyle(.grouped)

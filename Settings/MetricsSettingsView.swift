@@ -10,26 +10,38 @@ struct MetricsSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Retention") {
+            Section {
                 Stepper("Keep metrics for \(retentionDays) days", value: $retentionDays, in: 30...3650, step: 30)
                 Text("Usage records older than this are automatically deleted.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                Label("Retention", systemImage: "calendar")
             }
 
-            Section("Export") {
-                Button("Export metrics as CSV") {
+            Section {
+                Button {
                     exportCSV()
+                } label: {
+                    Label("Export as CSV", systemImage: "tablecells")
                 }
-                Button("Export metrics as JSON") {
+                Button {
                     exportJSON()
+                } label: {
+                    Label("Export as JSON", systemImage: "curlybraces")
                 }
+            } header: {
+                Label("Export", systemImage: "square.and.arrow.up")
             }
 
-            Section("Danger Zone") {
-                Button("Clear all metrics", role: .destructive) {
+            Section {
+                Button(role: .destructive) {
                     clearMetrics()
+                } label: {
+                    Label("Clear all metrics", systemImage: "trash")
                 }
+            } header: {
+                Label("Danger Zone", systemImage: "exclamationmark.triangle")
             }
 
             if let message = statusMessage {

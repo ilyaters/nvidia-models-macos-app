@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// Tabbed settings window.
+///
+/// All tabs use consistent SF Symbols with hierarchical rendering and
+/// uniform label formatting.
 struct SettingsView: Scene {
     var body: some Scene {
         Settings {
@@ -26,7 +29,7 @@ struct SettingsView: Scene {
                 AboutView()
                     .tabItem { Label("About", systemImage: "info.circle") }
             }
-            .frame(width: 500, height: 400)
+            .frame(width: 520, height: 420)
         }
     }
 }

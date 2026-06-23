@@ -12,27 +12,41 @@ struct HistorySettingsView: View {
 
     var body: some View {
         Form {
-            Section("Auto-save") {
+            Section {
                 Toggle("Automatically save conversations", isOn: $autoSave)
+            } header: {
+                Label("Auto-save", systemImage: "tray.full")
             }
 
-            Section("Retention") {
+            Section {
                 Stepper("Keep history for \(maxDays) days", value: $maxDays, in: 7...365, step: 7)
+            } header: {
+                Label("Retention", systemImage: "calendar")
             }
 
-            Section("Export") {
-                Button("Export all as Markdown") {
+            Section {
+                Button {
                     exportMarkdown()
+                } label: {
+                    Label("Export as Markdown", systemImage: "doc.richtext")
                 }
-                Button("Export all as JSON") {
+                Button {
                     exportJSON()
+                } label: {
+                    Label("Export as JSON", systemImage: "curlybraces")
                 }
+            } header: {
+                Label("Export", systemImage: "square.and.arrow.up")
             }
 
-            Section("Danger Zone") {
-                Button("Clear all history", role: .destructive) {
+            Section {
+                Button(role: .destructive) {
                     clearHistory()
+                } label: {
+                    Label("Clear all history", systemImage: "trash")
                 }
+            } header: {
+                Label("Danger Zone", systemImage: "exclamationmark.triangle")
             }
 
             if let message = exportMessage {
