@@ -56,6 +56,9 @@ final class ChatViewModel {
     /// Health check auto-refresh timer.
     private var healthCheckTimer: Timer?
 
+    /// Debounce timer for context estimation.
+    private var contextEstimationWorkItem: Task<Void, Never>?
+
     init(
         apiService: NVIDIAAPIService = NVIDIAAPIService(),
         modelsFetcher: ModelsFetcher = ModelsFetcher(),
@@ -216,6 +219,17 @@ final class ChatViewModel {
             estimatedTokens: estimatedContextTokens,
             contextLength: contextLimit
         )
+    }
+
+    /// Debounced context estimation — avoids recalculating on every keystroke.
+    func scheduleContextEstimation() {
+        contextEstimationWorkItem?.cancel()
+        contextEstimationWorkItem = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s debounce
+            if !Task.isCancelled {
+                updateContextEstimation()
+            }
+        }
     }
 
     // MARK: - Send Message

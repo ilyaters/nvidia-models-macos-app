@@ -1,6 +1,8 @@
 import SwiftUI
 
 /// Scrollable list of message bubbles in a conversation.
+///
+/// Uses LazyVStack for efficient rendering of large message lists.
 struct MessageThreadView: View {
     let messages: [Message]
     let isStreaming: Bool
@@ -32,7 +34,7 @@ struct MessageThreadView: View {
             }
             .onChange(of: messages.count) { _, _ in
                 if let lastMessage = messages.last {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(.easeOut(duration: 0.15)) {
                         proxy.scrollTo(lastMessage.id, anchor: .bottom)
                     }
                 }

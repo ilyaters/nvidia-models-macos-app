@@ -5,7 +5,7 @@ import AppKit
 ///
 /// On macOS Tahoe (26+) this makes the window background transparent and
 /// applies the native glass material so the whole window has the translucent
-/// Liquid Glass appearance matching the menu bar popover.
+/// Liquid Glass appearance.
 /// On earlier versions it falls back to `NSVisualEffectView` with
 /// `.hudWindow` material and `.behindWindow` blending.
 struct GlassWindowModifier: ViewModifier {
@@ -22,6 +22,9 @@ struct GlassWindowModifier: ViewModifier {
 }
 
 /// Makes the hosting window transparent so the vibrancy material shows through.
+///
+/// Window properties are set only once in `makeNSView` to avoid performance
+/// issues from repeated updates.
 struct WindowBackgroundView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -30,26 +33,26 @@ struct WindowBackgroundView: NSViewRepresentable {
         view.state = .active
 
         // Make the hosting window transparent so the vibrancy is visible.
-        DispatchQueue.main.async {
-            if let window = view.window {
-                window.isOpaque = false
-                window.backgroundColor = .clear
-                window.titlebarAppearsTransparent = true
-                window.titleVisibility = .hidden
-            }
+        // Use a delayed async call to ensure the window is available.
+        DispatchQueue.main.async { [weak view] in
+            guard let view, let window = view.window else { return }
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.animationBehavior = .documentWindow
         }
         return view
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = .hudWindow
-        nsView.blendingMode = .behindWindow
-        nsView.state = .active
-
-        if let window = nsView.window {
-            window.isOpaque = false
-            window.backgroundColor = .clear
-            window.titlebarAppearsTransparent = true
+        // Only update material/blending if they changed — avoid touching
+        // window properties on every update for performance.
+        if nsView.material != .hudWindow {
+            nsView.material = .hudWindow
+        }
+        if nsView.blendingMode != .behindWindow {
+            nsView.blendingMode = .behindWindow
         }
     }
 }

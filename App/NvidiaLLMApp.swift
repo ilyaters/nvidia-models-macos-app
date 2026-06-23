@@ -1,6 +1,11 @@
 import SwiftUI
 import SwiftData
 
+/// Notification posted when the user requests a new chat via Cmd+N.
+extension Notification.Name {
+    static let newChatRequested = Notification.Name("newChatRequested")
+}
+
 /// Main application entry point.
 ///
 /// Combines a main window (chat + metrics) with a menu bar popover
@@ -33,8 +38,19 @@ struct NvidiaLLMApp: App {
                 .modelContainer(modelContainer)
                 .glassWindowBackground()
                 .preferredColorScheme(theme.appearance.colorScheme)
+                .animation(.snappy, value: theme.appearance)
         }
         .defaultSize(width: 1000, height: 650)
+        .windowResizability(.contentMinSize)
+        .commands {
+            // Add New Chat shortcut
+            CommandGroup(after: .newItem) {
+                Button("New Chat") {
+                    NotificationCenter.default.post(name: .newChatRequested, object: nil)
+                }
+                .keyboardShortcut("n", modifiers: .command)
+            }
+        }
 
         // Menu bar popover
         MenuBarController()
