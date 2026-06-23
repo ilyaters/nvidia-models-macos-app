@@ -320,6 +320,7 @@ final class ChatViewModel {
         let assistantMessage = Message(role: .assistant, content: "", modelId: effectiveModelId)
         assistantMessage.conversation = conversation
         modelContext.insert(assistantMessage)
+        try? modelContext.save()
 
         // Build sampling params from per-conversation settings.
         let params = SamplingParams(

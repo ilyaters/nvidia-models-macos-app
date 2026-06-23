@@ -60,17 +60,21 @@ struct ChatInputView: View {
                         }
                         .pickerStyle(.menu)
 
-                        // Manual Model ID entry — for custom models not in the list
+                        // Manual Model ID entry — for custom models not in the list.
+                        // Health check fires on submit (Enter/Return) or focus loss,
+                        // not on every keystroke.
                         TextField("Or enter Model ID manually", text: Binding(
                             get: { conversation?.modelId ?? "" },
                             set: { newModelId in
                                 conversation?.modelId = newModelId
                                 try? modelContext.save()
-                                Task { await viewModel.checkModelHealth() }
                             }
                         ))
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11, design: .monospaced))
+                        .onSubmit {
+                            Task { await viewModel.checkModelHealth() }
+                        }
                     }
 
                     Divider()

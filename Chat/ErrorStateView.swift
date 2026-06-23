@@ -1,9 +1,10 @@
 import SwiftUI
+import AppKit
 
 /// Error state view displayed when a request fails.
 ///
-/// Shows the error message with a retry button and a "Dismiss" option.
-/// Uses Liquid Glass styling and hierarchical SF Symbols.
+/// Shows the error message with a retry button, a "Dismiss" option, and a
+/// context menu to copy the error text. Uses Liquid Glass styling.
 struct ErrorStateView: View {
     let message: String
     let onRetry: () -> Void
@@ -21,8 +22,21 @@ struct ErrorStateView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
                     .lineLimit(3)
+                    .textSelection(.enabled)
 
                 Spacer()
+
+                // Copy error button
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(message, forType: .string)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10))
+                        .symbolRenderingMode(.hierarchical)
+                }
+                .buttonStyle(.borderless)
+                .help("Copy error")
 
                 Button {
                     onRetry()
@@ -47,6 +61,15 @@ struct ErrorStateView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .glassBackground(cornerRadius: 10)
+            // Context menu for right-click copy
+            .contextMenu {
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(message, forType: .string)
+                } label: {
+                    Label("Copy Error", systemImage: "doc.on.doc")
+                }
+            }
         }
     }
 }
