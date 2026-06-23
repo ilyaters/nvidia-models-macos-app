@@ -6,6 +6,7 @@ import AppKit
 struct PopoverView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @State private var viewModel = PopoverViewModel()
 
     var body: some View {
@@ -99,7 +100,7 @@ struct PopoverView: View {
                 }
                 Spacer()
                 Button("Settings") {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    openSettings()
                 }
                 .buttonStyle(.borderless)
                 .font(.caption)
