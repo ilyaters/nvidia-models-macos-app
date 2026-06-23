@@ -77,10 +77,6 @@ struct MainChatView: View {
         }
         .onAppear {
             viewModel.configure(modelContext: modelContext)
-            viewModel.temperature = AppSettings.shared.defaultTemperature
-            viewModel.topP = AppSettings.shared.defaultTopP
-            viewModel.maxTokens = AppSettings.shared.defaultMaxTokens
-            viewModel.selectedModelId = AppSettings.shared.defaultModelId
         }
         .onChange(of: viewModel.inputText) {
             viewModel.updateContextEstimation()

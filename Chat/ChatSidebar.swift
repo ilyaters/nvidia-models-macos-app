@@ -40,11 +40,7 @@ struct ChatSidebar: View {
                 get: { viewModel.currentConversation?.id },
                 set: { id in
                     viewModel.currentConversation = viewModel.conversations.first { $0.id == id }
-                    if let conv = viewModel.currentConversation {
-                        viewModel.systemPromptOverride = conv.systemPrompt ?? AppSettings.shared.defaultSystemPrompt
-                        viewModel.selectedModelId = conv.modelId
-                        viewModel.updateContextEstimation()
-                    }
+                    viewModel.syncSettingsFromCurrentConversation()
                 }
             )) {
                 ForEach(filteredConversations) { conversation in
@@ -54,9 +50,7 @@ struct ChatSidebar: View {
                         renameText: $renameText,
                         onSelect: {
                             viewModel.currentConversation = conversation
-                            viewModel.systemPromptOverride = conversation.systemPrompt ?? AppSettings.shared.defaultSystemPrompt
-                            viewModel.selectedModelId = conversation.modelId
-                            viewModel.updateContextEstimation()
+                            viewModel.syncSettingsFromCurrentConversation()
                         },
                         onStartRename: {
                             renamingId = conversation.id

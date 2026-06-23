@@ -2,12 +2,20 @@ import SwiftUI
 import SwiftData
 
 /// Input area with text field, model selector, parameter sliders,
-/// system prompt editor, and context indicator.
+/// system prompt editor, per-chat settings, and context indicator.
+///
+/// All settings (model, endpoint, API key, temperature, etc.) are bound
+/// directly to the current conversation, so each chat is fully independent.
 struct ChatInputView: View {
     @Bindable var viewModel: ChatViewModel
     @Environment(\.modelContext) private var modelContext
 
     @State private var showParameters = false
+
+    /// Convenience accessor for the current conversation.
+    private var conversation: Conversation? {
+        viewModel.currentConversation
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,11 +44,11 @@ struct ChatInputView: View {
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.secondary)
                         Picker("Model", selection: Binding(
-                            get: { viewModel.currentConversation?.modelId ?? viewModel.selectedModelId },
+                            get: { conversation?.modelId ?? "" },
                             set: { newModelId in
-                                viewModel.selectedModelId = newModelId
-                                viewModel.currentConversation?.modelId = newModelId
+                                conversation?.modelId = newModelId
                                 try? modelContext.save()
+                                Task { await viewModel.checkModelHealth() }
                             }
                         )) {
                             if viewModel.availableModels.isEmpty {
@@ -55,6 +63,27 @@ struct ChatInputView: View {
 
                     Divider()
 
+                    // Per-chat endpoint
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Endpoint for this chat (optional)", systemImage: "network")
+                            .font(.caption)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.secondary)
+                        TextField("Use global endpoint", text: Binding(
+                            get: { conversation?.apiEndpoint ?? "" },
+                            set: { newEndpoint in
+                                conversation?.apiEndpoint = newEndpoint
+                                try? modelContext.save()
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        Text("Leave empty to use the global endpoint from Settings.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Divider()
+
                     // Per-chat API key
                     VStack(alignment: .leading, spacing: 4) {
                         Label("API key for this chat (optional)", systemImage: "key.fill")
@@ -62,9 +91,9 @@ struct ChatInputView: View {
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.secondary)
                         SecureField("Use global key", text: Binding(
-                            get: { viewModel.currentConversation?.apiKey ?? "" },
+                            get: { conversation?.apiKey ?? "" },
                             set: { newKey in
-                                viewModel.currentConversation?.apiKey = newKey.isEmpty ? nil : newKey
+                                conversation?.apiKey = newKey.isEmpty ? nil : newKey
                                 try? modelContext.save()
                             }
                         ))
@@ -82,11 +111,17 @@ struct ChatInputView: View {
                             .font(.caption)
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.secondary)
-                        TextEditor(text: $viewModel.systemPromptOverride)
-                            .font(.system(size: 12))
-                            .frame(height: 60)
-                            .padding(4)
-                            .glassBackground(cornerRadius: 6)
+                        TextEditor(text: Binding(
+                            get: { conversation?.systemPrompt ?? viewModel.systemPromptOverride },
+                            set: { newPrompt in
+                                conversation?.systemPrompt = newPrompt
+                                try? modelContext.save()
+                            }
+                        ))
+                        .font(.system(size: 12))
+                        .frame(height: 60)
+                        .padding(4)
+                        .glassBackground(cornerRadius: 6)
                     }
                 }
                 .padding(.horizontal)
@@ -95,13 +130,13 @@ struct ChatInputView: View {
 
             // Toolbar: model selector, parameters, research toggle
             HStack(spacing: 8) {
-                // Model selector — also saves to the current conversation
+                // Model selector — bound to conversation
                 Picker("Model", selection: Binding(
-                    get: { viewModel.selectedModelId },
+                    get: { conversation?.modelId ?? "" },
                     set: { newModelId in
-                        viewModel.selectedModelId = newModelId
-                        viewModel.currentConversation?.modelId = newModelId
+                        conversation?.modelId = newModelId
                         try? modelContext.save()
+                        Task { await viewModel.checkModelHealth() }
                     }
                 )) {
                     if viewModel.availableModels.isEmpty {
@@ -116,13 +151,13 @@ struct ChatInputView: View {
 
                 // Model health status indicator
                 ModelStatusIndicatorView(
-                    modelId: viewModel.selectedModelId,
-                    status: viewModel.healthCheck.status(for: viewModel.selectedModelId)
+                    modelId: conversation?.modelId ?? "",
+                    status: viewModel.healthCheck.status(for: conversation?.modelId ?? "")
                 ) {
                     Task { await viewModel.checkModelHealth() }
                 }
 
-                // System prompt toggle
+                // Settings toggle
                 Button {
                     viewModel.isSystemPromptExpanded.toggle()
                 } label: {
@@ -130,7 +165,7 @@ struct ChatInputView: View {
                         .symbolRenderingMode(.hierarchical)
                 }
                 .buttonStyle(.borderless)
-                .help("System prompt")
+                .help("Per-chat settings")
 
                 // Parameters toggle
                 Button {
@@ -165,21 +200,30 @@ struct ChatInputView: View {
             .padding(.horizontal)
             .padding(.top, 8)
 
-            // Parameter sliders
+            // Parameter sliders — bound to conversation
             if showParameters {
                 VStack(spacing: 6) {
-                    GlassSliderStyle(value: $viewModel.temperature, in: 0...2) {
+                    GlassSliderStyle(value: Binding(
+                        get: { conversation?.temperature ?? 0.7 },
+                        set: { conversation?.temperature = $0 }
+                    ), in: 0...2) {
                         Text("Temperature")
                     }
-                    GlassSliderStyle(value: $viewModel.topP, in: 0...1) {
+                    GlassSliderStyle(value: Binding(
+                        get: { conversation?.topP ?? 0.95 },
+                        set: { conversation?.topP = $0 }
+                    ), in: 0...1) {
                         Text("Top P")
                     }
                     HStack {
                         Text("Max Tokens")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
-                        Stepper(value: $viewModel.maxTokens, in: 1...32768, step: 128) {
-                            Text("\(viewModel.maxTokens)")
+                        Stepper(value: Binding(
+                            get: { conversation?.maxTokens ?? 1024 },
+                            set: { conversation?.maxTokens = $0 }
+                        ), in: 1...32768, step: 128) {
+                            Text("\(conversation?.maxTokens ?? 1024)")
                                 .font(.system(size: 12, design: .monospaced))
                         }
                         Spacer()

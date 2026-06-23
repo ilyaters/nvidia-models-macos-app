@@ -6,7 +6,8 @@ import Observation
 /// View model driving the chat interface.
 ///
 /// Manages conversation state, message sending, streaming responses,
-/// and usage metrics recording.
+/// and usage metrics recording. Each conversation streams independently so
+/// multiple chats can run in parallel with different models and endpoints.
 @MainActor
 @Observable
 final class ChatViewModel {
@@ -19,7 +20,6 @@ final class ChatViewModel {
     private let modelsFetcher: ModelsFetcher
     private let searchService: GoogleSearchService
     private let tokenEstimator = TokenEstimator()
-    private let latencyTracker = LatencyTracker()
     private let settings = AppSettings.shared
     private var metricsStore: MetricsStore?
     let healthCheck = HealthCheckService()
@@ -31,31 +31,30 @@ final class ChatViewModel {
     var inputText: String = ""
     var systemPromptOverride: String = ""
     var isSystemPromptExpanded: Bool = false
-    var isStreaming: Bool = false
     var errorMessage: String?
     var researchMode: Bool = false
     var searchResults: [GoogleSearchService.SearchResult] = []
-
-    // Sampling parameters (editable in UI)
-    var temperature: Double = 0.7
-    var topP: Double = 0.95
-    var maxTokens: Int = 1024
-    var selectedModelId: String = ""
 
     // Context estimation
     var estimatedContextTokens: Int = 0
     var contextLimit: Int?
     var isApproachingLimit: Bool = false
 
-    // API key (loaded from Keychain)
+    // API key (loaded from Keychain — global fallback)
     var apiKey: String = ""
 
-    /// Last user message text, stored for retry.
-    private var lastSentText: String = ""
+    /// Streaming tasks keyed by conversation ID, so multiple chats can stream
+    /// in parallel and be stopped independently.
+    private var streamingTasks: [UUID: Task<Void, Never>] = [:]
 
-    /// Currently running streaming task. Stored so it can be cancelled to
-    /// stop generation.
-    private var streamingTask: Task<Void, Never>?
+    /// Latency trackers keyed by conversation ID.
+    private var latencyTrackers: [UUID: LatencyTracker] = [:]
+
+    /// Last user message text per conversation, stored for retry.
+    private var lastSentTexts: [UUID: String] = [:]
+
+    /// Health check auto-refresh timer.
+    private var healthCheckTimer: Timer?
 
     init(
         apiService: NVIDIAAPIService = NVIDIAAPIService(),
@@ -74,6 +73,7 @@ final class ChatViewModel {
         loadAPIKey()
         loadConversations(modelContext: modelContext)
         Task { await loadModels() }
+        startHealthCheckTimer()
     }
 
     func loadAPIKey() {
@@ -85,6 +85,19 @@ final class ChatViewModel {
         KeychainManager.save(key, for: "nvidia_api_key")
     }
 
+    // MARK: - Streaming State
+
+    /// Returns whether a specific conversation is currently streaming.
+    func isStreaming(for conversationId: UUID) -> Bool {
+        streamingTasks[conversationId] != nil
+    }
+
+    /// Returns whether the current conversation is streaming.
+    var isStreaming: Bool {
+        guard let id = currentConversation?.id else { return false }
+        return isStreaming(for: id)
+    }
+
     // MARK: - Models
 
     func loadModels() async {
@@ -94,11 +107,6 @@ final class ChatViewModel {
                 endpoint: settings.apiEndpoint,
                 apiKey: apiKey
             )
-            if selectedModelId.isEmpty {
-                selectedModelId = settings.defaultModelId
-            }
-            // Update context limit from model metadata.
-            contextLimit = availableModels.first { $0.id == selectedModelId }?.contextLength
             // Auto-check the selected model's health after loading.
             await checkModelHealth()
         } catch {
@@ -110,12 +118,28 @@ final class ChatViewModel {
 
     /// Sends a lightweight health-check request for the currently selected model.
     func checkModelHealth() async {
-        guard !selectedModelId.isEmpty else { return }
+        guard let conversation = currentConversation else { return }
+        let modelId = conversation.modelId.isEmpty ? settings.defaultModelId : conversation.modelId
+        guard !modelId.isEmpty else { return }
+
+        let effectiveKey = conversation.apiKey?.isEmpty == false ? conversation.apiKey! : apiKey
+        let effectiveEndpoint = conversation.apiEndpoint.isEmpty ? settings.apiEndpoint : conversation.apiEndpoint
+
         await healthCheck.check(
-            model: selectedModelId,
-            endpoint: settings.apiEndpoint,
-            apiKey: apiKey
+            model: modelId,
+            endpoint: effectiveEndpoint,
+            apiKey: effectiveKey
         )
+    }
+
+    /// Starts a timer that refreshes the health check every 5 seconds.
+    private func startHealthCheckTimer() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.checkModelHealth()
+            }
+        }
     }
 
     // MARK: - Conversations
@@ -128,27 +152,34 @@ final class ChatViewModel {
 
         if currentConversation == nil {
             currentConversation = conversations.first
+            syncSettingsFromCurrentConversation()
         }
     }
 
     func createNewConversation(modelContext: ModelContext) {
         let conversation = Conversation(
-            modelId: selectedModelId.isEmpty ? settings.defaultModelId : selectedModelId,
-            systemPrompt: settings.defaultSystemPrompt.isEmpty ? nil : settings.defaultSystemPrompt
+            modelId: settings.defaultModelId,
+            apiEndpoint: settings.apiEndpoint,
+            systemPrompt: settings.defaultSystemPrompt.isEmpty ? nil : settings.defaultSystemPrompt,
+            temperature: settings.defaultTemperature,
+            topP: settings.defaultTopP,
+            maxTokens: settings.defaultMaxTokens
         )
         modelContext.insert(conversation)
         try? modelContext.save()
         conversations.insert(conversation, at: 0)
         currentConversation = conversation
-        systemPromptOverride = conversation.systemPrompt ?? settings.defaultSystemPrompt
+        syncSettingsFromCurrentConversation()
     }
 
     func deleteConversation(_ conversation: Conversation, modelContext: ModelContext) {
+        stopGeneration(for: conversation.id)
         modelContext.delete(conversation)
         try? modelContext.save()
         conversations.removeAll { $0.id == conversation.id }
         if currentConversation?.id == conversation.id {
             currentConversation = conversations.first
+            syncSettingsFromCurrentConversation()
         }
     }
 
@@ -156,6 +187,15 @@ final class ChatViewModel {
         conversation.title = title
         conversation.updatedAt = .now
         try? modelContext.save()
+    }
+
+    /// Syncs the UI-editable settings from the current conversation.
+    func syncSettingsFromCurrentConversation() {
+        guard let conversation = currentConversation else { return }
+        systemPromptOverride = conversation.systemPrompt ?? settings.defaultSystemPrompt
+        contextLimit = availableModels.first { $0.id == conversation.modelId }?.contextLength
+        updateContextEstimation()
+        Task { await checkModelHealth() }
     }
 
     // MARK: - Context Estimation
@@ -167,7 +207,7 @@ final class ChatViewModel {
             return
         }
 
-        let prompt = systemPromptOverride.isEmpty ? nil : systemPromptOverride
+        let prompt = conversation.systemPrompt ?? (systemPromptOverride.isEmpty ? nil : systemPromptOverride)
         estimatedContextTokens = tokenEstimator.estimateContext(
             systemPrompt: prompt,
             messages: conversation.messages
@@ -182,23 +222,27 @@ final class ChatViewModel {
 
     func sendMessage(modelContext: ModelContext) async {
         guard let conversation = currentConversation else { return }
-        guard !isStreaming else { return }
+        guard !isStreaming(for: conversation.id) else { return }
         let userText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !userText.isEmpty else { return }
 
-        // Use per-conversation API key if set, otherwise fall back to the
-        // global key from Keychain.
+        // Use per-conversation API key if set, otherwise fall back to global.
         let effectiveAPIKey = conversation.apiKey?.isEmpty == false ? conversation.apiKey! : apiKey
         guard !effectiveAPIKey.isEmpty else {
-            errorMessage = "Please set your NVIDIA API key in Settings."
+            errorMessage = "Please set your NVIDIA API key in Settings or per-chat."
             return
         }
+
+        // Use per-conversation endpoint if set, otherwise global.
+        let effectiveEndpoint = conversation.apiEndpoint.isEmpty ? settings.apiEndpoint : conversation.apiEndpoint
+
+        // Use per-conversation model.
+        let effectiveModelId = conversation.modelId.isEmpty ? settings.defaultModelId : conversation.modelId
 
         // Clear input and error.
         inputText = ""
         errorMessage = nil
-        isStreaming = true
-        lastSentText = userText
+        lastSentTexts[conversation.id] = userText
 
         // Save user message.
         let userMessage = Message(role: .user, content: userText)
@@ -210,7 +254,7 @@ final class ChatViewModel {
         // Build messages array for the API.
         var apiMessages: [APIRequestMessage] = []
 
-        let systemPrompt = systemPromptOverride.isEmpty ? settings.defaultSystemPrompt : systemPromptOverride
+        let systemPrompt = conversation.systemPrompt ?? (systemPromptOverride.isEmpty ? settings.defaultSystemPrompt : systemPromptOverride)
         if !systemPrompt.isEmpty {
             apiMessages.append(APIRequestMessage(role: "system", content: systemPrompt))
         }
@@ -232,19 +276,16 @@ final class ChatViewModel {
             apiMessages.append(APIRequestMessage(role: msg.role.rawValue, content: msg.content))
         }
 
-        // Use per-conversation model if set, otherwise the selected model.
-        let effectiveModelId = conversation.modelId.isEmpty ? selectedModelId : conversation.modelId
-
         // Create placeholder assistant message for streaming.
         let assistantMessage = Message(role: .assistant, content: "", modelId: effectiveModelId)
         assistantMessage.conversation = conversation
         modelContext.insert(assistantMessage)
 
-        // Build sampling params.
+        // Build sampling params from per-conversation settings.
         let params = SamplingParams(
-            temperature: temperature,
-            topP: topP,
-            maxTokens: maxTokens,
+            temperature: conversation.temperature,
+            topP: conversation.topP,
+            maxTokens: conversation.maxTokens,
             presencePenalty: nil,
             frequencyPenalty: nil,
             stop: nil,
@@ -253,14 +294,17 @@ final class ChatViewModel {
         )
 
         // Start latency tracking.
-        latencyTracker.start()
+        let tracker = LatencyTracker()
+        tracker.start()
+        latencyTrackers[conversation.id] = tracker
 
         // Stream the response. Wrapped in a stored Task so it can be cancelled.
-        var outputTokenCount = 0
+        let convId = conversation.id
+        streamingTasks[convId] = Task {
+            var outputTokenCount = 0
 
-        streamingTask = Task {
             for await event in apiService.streamChat(
-                endpoint: settings.apiEndpoint,
+                endpoint: effectiveEndpoint,
                 apiKey: effectiveAPIKey,
                 model: effectiveModelId,
                 messages: apiMessages,
@@ -270,27 +314,25 @@ final class ChatViewModel {
 
                 switch event {
                 case .delta(let text):
-                    if latencyTracker.timeToFirstTokenMs == 0 {
-                        latencyTracker.recordFirstToken()
+                    if tracker.timeToFirstTokenMs == 0 {
+                        tracker.recordFirstToken()
                     }
                     assistantMessage.content += text
                     outputTokenCount += 1
 
                 case .complete(let usage):
-                    latencyTracker.finish()
+                    tracker.finish()
 
-                    // Update message with token counts.
                     assistantMessage.inputTokens = usage?.promptTokens ?? 0
                     assistantMessage.outputTokens = usage?.completionTokens ?? outputTokenCount
                     assistantMessage.totalTokens = usage?.totalTokens ?? 0
-                    assistantMessage.responseTimeMs = latencyTracker.totalResponseTimeMs
+                    assistantMessage.responseTimeMs = tracker.totalResponseTimeMs
 
-                    // Save usage record for metrics.
                     metricsStore?.saveUsageRecord(
                         modelId: effectiveModelId,
-                        conversationId: conversation.id,
+                        conversationId: convId,
                         usage: usage,
-                        latency: latencyTracker,
+                        latency: tracker,
                         outputTokenCount: outputTokenCount
                     )
 
@@ -304,18 +346,23 @@ final class ChatViewModel {
 
             conversation.updatedAt = .now
             try? modelContext.save()
-            isStreaming = false
+            streamingTasks[convId] = nil
+            latencyTrackers[convId] = nil
             updateContextEstimation()
         }
-
-        await streamingTask?.value
     }
 
-    /// Stops the currently running streaming generation.
+    /// Stops generation for a specific conversation.
+    func stopGeneration(for conversationId: UUID) {
+        streamingTasks[conversationId]?.cancel()
+        streamingTasks[conversationId] = nil
+        latencyTrackers[conversationId] = nil
+    }
+
+    /// Stops generation for the current conversation.
     func stopGeneration() {
-        streamingTask?.cancel()
-        streamingTask = nil
-        isStreaming = false
+        guard let id = currentConversation?.id else { return }
+        stopGeneration(for: id)
     }
 
     // MARK: - Message Actions
@@ -326,13 +373,11 @@ final class ChatViewModel {
         guard let conversation = currentConversation else { return }
         guard message.role == .user else { return }
 
-        // Remove all messages after the specified user message.
         let messagesToRemove = conversation.messages.filter { $0.timestamp > message.timestamp }
         for msg in messagesToRemove {
             modelContext.delete(msg)
         }
 
-        // Remove the user message itself (sendMessage will re-add it).
         let userText = message.content
         modelContext.delete(message)
         try? modelContext.save()
@@ -346,17 +391,14 @@ final class ChatViewModel {
         guard message.role == .user else { return }
         guard let conversation = currentConversation else { return }
 
-        // Remove all messages after the edited message.
         let messagesToRemove = conversation.messages.filter { $0.timestamp > message.timestamp }
         for msg in messagesToRemove {
             modelContext.delete(msg)
         }
 
-        // Update the message content.
         message.content = newContent
         try? modelContext.save()
 
-        // Resend from this message.
         let userText = newContent
         modelContext.delete(message)
         try? modelContext.save()
@@ -408,17 +450,14 @@ final class ChatViewModel {
     func regenerateLastMessage(modelContext: ModelContext) async {
         guard let conversation = currentConversation else { return }
 
-        // Find the last user message.
         guard let lastUserMessage = conversation.messages.last(where: { $0.role == .user }) else { return }
 
-        // Remove messages after the last user message.
         let messagesToRemove = conversation.messages.filter { $0.timestamp > lastUserMessage.timestamp }
         for msg in messagesToRemove {
             modelContext.delete(msg)
         }
         try? modelContext.save()
 
-        // Re-send with the last user message content.
         inputText = lastUserMessage.content
         modelContext.delete(lastUserMessage)
         try? modelContext.save()
@@ -427,24 +466,21 @@ final class ChatViewModel {
 
     // MARK: - Retry
 
-    /// Retries the last failed request by re-sending the last user message.
     func retryLastRequest(modelContext: ModelContext) async {
-        guard !lastSentText.isEmpty else { return }
+        guard let conversation = currentConversation,
+              let lastSent = lastSentTexts[conversation.id], !lastSent.isEmpty else { return }
         errorMessage = nil
 
-        // Remove the last user message if it exists (it was already saved).
-        if let conversation = currentConversation,
-           let lastUser = conversation.messages.last(where: { $0.role == .user }),
-           lastUser.content == lastSentText {
+        if let lastUser = conversation.messages.last(where: { $0.role == .user }),
+           lastUser.content == lastSent {
             modelContext.delete(lastUser)
             try? modelContext.save()
         }
 
-        inputText = lastSentText
+        inputText = lastSent
         await sendMessage(modelContext: modelContext)
     }
 
-    /// Dismisses the current error message.
     func dismissError() {
         errorMessage = nil
     }
