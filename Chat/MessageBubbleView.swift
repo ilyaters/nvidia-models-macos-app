@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 
 /// Renders a single chat message bubble with Liquid Glass styling.
 struct MessageBubbleView: View {
@@ -33,8 +34,9 @@ struct MessageBubbleView: View {
                         .glassBackground(cornerRadius: 14)
                         .textSelection(.enabled)
                 } else {
-                    Text(message.content)
-                        .font(.body)
+                    // User messages — render markdown too.
+                    Markdown(message.content)
+                        .markdownTheme(.basic)
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 14)
