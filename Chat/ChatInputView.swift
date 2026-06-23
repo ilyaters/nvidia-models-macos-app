@@ -23,6 +23,7 @@ struct ChatInputView: View {
             if let error = viewModel.errorMessage {
                 ErrorStateView(
                     message: error,
+                    detailedMessage: viewModel.detailedErrorMessage,
                     onRetry: {
                         Task { await viewModel.retryLastRequest(modelContext: modelContext) }
                     },

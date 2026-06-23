@@ -38,4 +38,68 @@ enum APIError: LocalizedError {
             return "Streaming error: \(message)"
         }
     }
+
+    /// Full detailed error text including status codes, response bodies, and
+    /// underlying error descriptions. Used for copying to clipboard.
+    var detailedDescription: String {
+        switch self {
+        case .missingAPIKey:
+            return """
+            Error: Missing API Key
+            
+            The NVIDIA API key is not set. 
+            Open Settings → API to add your key, or set a per-chat API key.
+            """
+        case .invalidURL:
+            return """
+            Error: Invalid URL
+            
+            The API endpoint URL is malformed. Check Settings → API → Endpoint.
+            """
+        case .invalidResponse:
+            return """
+            Error: Invalid Response
+            
+            The server returned a response that could not be parsed as HTTP.
+            """
+        case .httpError(let statusCode, let message):
+            return """
+            Error: HTTP \(statusCode)
+            
+            Response body:
+            \(message ?? "(empty)")
+            """
+        case .decodingError(let error):
+            return """
+            Error: Decoding Failed
+            
+            \(error)
+            
+            Localized: \(error.localizedDescription)
+            """
+        case .networkError(let error):
+            let nsError = error as NSError
+            return """
+            Error: Network Error
+            
+            \(error.localizedDescription)
+            
+            Domain: \(nsError.domain)
+            Code: \(nsError.code)
+            UserInfo: \(nsError.userInfo)
+            """
+        case .rateLimited(let retryAfter):
+            return """
+            Error: Rate Limited (HTTP 429)
+            
+            Retry after: \(retryAfter.map { "\(Int($0)) seconds" } ?? "unknown")
+            """
+        case .streamError(let message):
+            return """
+            Error: Streaming Error
+            
+            \(message)
+            """
+        }
+    }
 }

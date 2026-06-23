@@ -35,6 +35,8 @@ final class ChatViewModel {
     private var inputTexts: [UUID: String] = [:]
     var isSystemPromptExpanded: Bool = false
     var errorMessage: String?
+    /// Full detailed error text (status code, response body, etc.) for copying.
+    var detailedErrorMessage: String?
     var researchMode: Bool = false
     var searchResults: [GoogleSearchService.SearchResult] = []
 
@@ -282,6 +284,7 @@ final class ChatViewModel {
         // Clear input and error.
         inputText = ""
         errorMessage = nil
+        detailedErrorMessage = nil
         lastSentTexts[conversation.id] = userText
 
         // Save user message.
@@ -379,6 +382,7 @@ final class ChatViewModel {
 
                 case .error(let error):
                     errorMessage = error.localizedDescription
+                    detailedErrorMessage = error.detailedDescription
                     if assistantMessage.content.isEmpty {
                         modelContext.delete(assistantMessage)
                     }
@@ -511,6 +515,7 @@ final class ChatViewModel {
         guard let conversation = currentConversation,
               let lastSent = lastSentTexts[conversation.id], !lastSent.isEmpty else { return }
         errorMessage = nil
+        detailedErrorMessage = nil
 
         if let lastUser = conversation.messages.last(where: { $0.role == .user }),
            lastUser.content == lastSent {
@@ -524,5 +529,6 @@ final class ChatViewModel {
 
     func dismissError() {
         errorMessage = nil
+        detailedErrorMessage = nil
     }
 }
