@@ -28,9 +28,9 @@ struct NvidiaLLMApp: App {
             )
         } catch {
             // Migration failed — the existing store has an incompatible schema.
-            // Delete the old store and create a fresh one.
+            // Delete the old store file and create a fresh one.
             print("ModelContainer failed, attempting to reset store: \(error)")
-            ModelContainer.deleteAllData()
+            Self.deleteStoreFiles()
             
             do {
                 modelContainer = try ModelContainer(
@@ -73,5 +73,21 @@ struct NvidiaLLMApp: App {
         // Settings
         SettingsView()
             .modelContainer(modelContainer)
+    }
+
+    // MARK: - Store Recovery
+
+    /// Deletes the SwiftData SQLite store files so a fresh container can be
+    /// created when migration fails.
+    private static func deleteStoreFiles() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        guard let dir = appSupport else { return }
+
+        // SwiftData default store files
+        let filenames = ["default.store", "default.store-shm", "default.store-wal"]
+        for filename in filenames {
+            let url = dir.appendingPathComponent(filename)
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 }
