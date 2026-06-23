@@ -57,10 +57,11 @@ struct MenuBarMenu: View {
             Label("Bring to Front", systemImage: "arrow.up.forward.app")
         }
 
-        Button(role: .quit) {
+        Button {
             NSApp.terminate(nil)
         } label: {
             Label("Quit NVIDIA LLM", systemImage: "power")
         }
+        .keyboardShortcut("q")
     }
 }
