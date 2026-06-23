@@ -72,6 +72,29 @@ final class HealthCheckService {
 
         statuses[model] = .checking
 
+        await performCheck(model: model, endpoint: endpoint, apiKey: apiKey)
+    }
+
+    /// Performs a silent health check — does NOT show the "checking" spinner.
+    /// Used by the auto-refresh timer so the status updates without visual
+    /// disruption.
+    func silentCheck(model: String, endpoint: String, apiKey: String) async {
+        guard !apiKey.isEmpty else {
+            statuses[model] = .noApiKey
+            return
+        }
+
+        // Only show checking state if we don't have a status yet
+        if statuses[model] == nil || statuses[model] == .unknown {
+            statuses[model] = .checking
+        }
+
+        await performCheck(model: model, endpoint: endpoint, apiKey: apiKey)
+    }
+
+    /// Internal method that performs the actual HTTP check.
+    private func performCheck(model: String, endpoint: String, apiKey: String) async {
+
         guard let url = URL(string: "\(endpoint)/chat/completions") else {
             statuses[model] = .unavailable("Invalid URL")
             return

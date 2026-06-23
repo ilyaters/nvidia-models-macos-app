@@ -30,6 +30,9 @@ final class ChatViewModel {
     var availableModels: [NvidiaModel] = []
     var inputText: String = ""
     var systemPromptOverride: String = ""
+
+    /// Input text drafts per conversation, so switching chats preserves drafts.
+    private var inputTexts: [UUID: String] = [:]
     var isSystemPromptExpanded: Bool = false
     var errorMessage: String?
     var researchMode: Bool = false
@@ -120,6 +123,7 @@ final class ChatViewModel {
     // MARK: - Health Check
 
     /// Sends a lightweight health-check request for the currently selected model.
+    /// Shows the "checking" spinner.
     func checkModelHealth() async {
         guard let conversation = currentConversation else { return }
         let modelId = conversation.modelId.isEmpty ? settings.defaultModelId : conversation.modelId
@@ -135,12 +139,29 @@ final class ChatViewModel {
         )
     }
 
-    /// Starts a timer that refreshes the health check every 5 seconds.
+    /// Silent health check — does NOT show the "checking" spinner.
+    /// Used by the auto-refresh timer.
+    func silentCheckModelHealth() async {
+        guard let conversation = currentConversation else { return }
+        let modelId = conversation.modelId.isEmpty ? settings.defaultModelId : conversation.modelId
+        guard !modelId.isEmpty else { return }
+
+        let effectiveKey = conversation.apiKey?.isEmpty == false ? conversation.apiKey! : apiKey
+        let effectiveEndpoint = conversation.apiEndpoint?.isEmpty == false ? conversation.apiEndpoint! : settings.apiEndpoint
+
+        await healthCheck.silentCheck(
+            model: modelId,
+            endpoint: effectiveEndpoint,
+            apiKey: effectiveKey
+        )
+    }
+
+    /// Starts a timer that silently refreshes the health check every 5 seconds.
     private func startHealthCheckTimer() {
         healthCheckTimer?.invalidate()
         healthCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                await self?.checkModelHealth()
+                await self?.silentCheckModelHealth()
             }
         }
     }
@@ -194,10 +215,14 @@ final class ChatViewModel {
     }
 
     /// Syncs the UI-editable settings from the current conversation.
+    /// Also saves the current input text draft and restores the new
+    /// conversation's draft.
     func syncSettingsFromCurrentConversation() {
         guard let conversation = currentConversation else { return }
         systemPromptOverride = conversation.systemPrompt ?? settings.defaultSystemPrompt
         contextLimit = availableModels.first { $0.id == conversation.modelId }?.contextLength
+        // Restore the input text draft for this conversation (or clear it).
+        inputText = inputTexts[conversation.id] ?? ""
         updateContextEstimation()
         Task { await checkModelHealth() }
     }

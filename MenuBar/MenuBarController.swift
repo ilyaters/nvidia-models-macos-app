@@ -19,11 +19,13 @@ struct MenuBarController: Scene {
 }
 
 /// The menu content shown when clicking the menu bar icon.
+///
+/// Uses ChatViewModel.shared for conversation list instead of @Query,
+/// because @Query may not work reliably inside MenuBarExtra .menu style.
 struct MenuBarMenu: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
 
     private var viewModel: ChatViewModel { ChatViewModel.shared }
 
@@ -45,9 +47,9 @@ struct MenuBarMenu: View {
 
         Divider()
 
-        // List of existing conversations
-        if !conversations.isEmpty {
-            ForEach(conversations.prefix(10)) { conversation in
+        // List of existing conversations from the shared view model
+        if !viewModel.conversations.isEmpty {
+            ForEach(viewModel.conversations.prefix(15)) { conversation in
                 Button {
                     openWindow(id: "main")
                     NSApp.activate(ignoringOtherApps: true)
@@ -57,6 +59,12 @@ struct MenuBarMenu: View {
                     HStack {
                         Image(systemName: viewModel.currentConversation?.id == conversation.id ? "bubble.left.fill" : "bubble.left")
                         Text(conversation.title)
+                        if !conversation.modelId.isEmpty {
+                            Spacer()
+                            Text(conversation.modelId)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }

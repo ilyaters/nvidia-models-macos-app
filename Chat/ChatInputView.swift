@@ -59,6 +59,18 @@ struct ChatInputView: View {
                             }
                         }
                         .pickerStyle(.menu)
+
+                        // Manual Model ID entry — for custom models not in the list
+                        TextField("Or enter Model ID manually", text: Binding(
+                            get: { conversation?.modelId ?? "" },
+                            set: { newModelId in
+                                conversation?.modelId = newModelId
+                                try? modelContext.save()
+                                Task { await viewModel.checkModelHealth() }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11, design: .monospaced))
                     }
 
                     Divider()
